@@ -72,6 +72,8 @@
 #include "nrf_log_default_backends.h"
 #include "ADG725.h"
 
+// add by cwh
+#include "nrf_drv_ppi.h"
 
 #define ADVERTISING_LED                 BSP_BOARD_LED_0                         /**< Is on when device is advertising. */
 #define CONNECTED_LED                   BSP_BOARD_LED_1                         /**< Is on when device has connected. */
@@ -574,6 +576,8 @@ static void idle_state_handle(void)
 int counttx=0;
 uint8_t  DataRead[256];
 uint8_t  DataRead_short[224];
+volatile nrf_saadc_value_t out_voltage;
+volatile uint8_t cnt = 0;
 
 
 void saadc_callback(nrf_drv_saadc_evt_t const * p_event)
@@ -593,24 +597,51 @@ void saadc_init(void)
     APP_ERROR_CHECK(err_code);
 
 }
+
+void saadc_init_quick_sample(void)
+{
+    ret_code_t err_code;
+    nrf_saadc_channel_config_t channel_config =
+            NRF_DRV_SAADC_DEFAULT_CHANNEL_CONFIG_SE(NRF_SAADC_INPUT_AIN3);
+	// add by cwh
+		channel_config.acq_time = NRF_SAADC_ACQTIME_3US;
+    err_code = nrf_drv_saadc_init(NULL, saadc_callback);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_drv_saadc_channel_init(0, &channel_config);
+    APP_ERROR_CHECK(err_code);
+
+}
+
 #define CSA 6
 #define CSB 5
 static void thi_monitor_handler(void)
 {
+	// 如果已经连接上，则上传数据到主机，否则不执行后面的操作
+	if(m_conn_handle == BLE_CONN_HANDLE_INVALID) {
+		return;
+	}
 
 		uint8_t reg_x = (1<<CSB);
-	  uint16_t matrix_scan=0;
+	  // uint16_t matrix_scan=0;
 		for(int i=0;i<16;i++){
 			set_mux(reg_x);
 			uint8_t reg_y = (1<<CSA);
-			matrix_scan=0;
+			// matrix_scan=0;
 			for(int k=0;k<16;k++){
 				set_mux(reg_y);
 				reg_y++;
 				
-				nrf_saadc_value_t  saadc_val=0;
+				nrf_saadc_value_t saadc_val=0;
 				nrf_drv_saadc_sample_convert(0,&saadc_val);
-				DataRead[16*i+k]=saadc_val;
+        DataRead[16*i+k]=saadc_val;
+
+				// NRF_LOG_INFO("## start sample cnt = %d", (int)cnt);
+    //     cnt = 0;
+    //     nrf_drv_saadc_sample();
+    //     while (cnt == 0) {} // wait for adc
+				// NRF_LOG_INFO("## cnt = %d", (int)cnt);
+				// DataRead[16*i+k] = out_voltage;
 			}
 
 			reg_x++;
@@ -627,10 +658,16 @@ static void thi_monitor_handler(void)
 	//	{
 	//		ble_lbs_on_button_change1(m_conn_handle, &m_lbs, DataRead);
 	//	}
-		if(m_conn_handle!=BLE_CONN_HANDLE_INVALID)
-		{
+		
 			ble_lbs_on_button_change1(m_conn_handle, &m_lbs, DataRead_short);
-		}
+			
+			// add by cwh
+			static int count = 0;
+			count++;
+			if (count == 200) {
+				NRF_LOG_INFO("send 200 times");
+				count = 0;
+			}
 }
 
 //定时器超时中断操作
@@ -666,7 +703,7 @@ static void timers_init1(void)
 }
 
 
-//定时器开始计时，时间间隔2ms
+//定时器开始计时，时间间隔 __ ms
 /**@brief Function for starting application timers.
  */
 static void application_timers_start(void)
@@ -680,6 +717,223 @@ static void application_timers_start(void)
     nrf_drv_timer_enable(&m_timer);
 }
 
+#define SAMPLES_IN_BUFFER 1
+// volatile uint8_t state = 1;
+
+// static const nrf_drv_timer_t m_timer = NRF_DRV_TIMER_INSTANCE(0);
+static nrf_saadc_value_t     m_buffer_pool[1][SAMPLES_IN_BUFFER];
+static nrf_ppi_channel_t     m_ppi_channel;
+static uint32_t              m_adc_evt_counter;
+
+void timer_handler(nrf_timer_event_t event_type, void * p_context)
+{
+
+}
+
+
+void saadc_sampling_event_init(void)
+{
+    ret_code_t err_code;
+
+    err_code = nrf_drv_ppi_init();
+    APP_ERROR_CHECK(err_code);
+
+    nrf_drv_timer_config_t timer_cfg = NRF_DRV_TIMER_DEFAULT_CONFIG;
+    timer_cfg.bit_width = NRF_TIMER_BIT_WIDTH_32;
+    err_code = nrf_drv_timer_init(&m_timer, &timer_cfg, timer_handler);
+    APP_ERROR_CHECK(err_code);
+
+    /* setup m_timer for compare event every __ ms/us */
+    // 设置定时，捕获/比较通道，比较值，清除比较任务，关闭时钟中断
+    uint32_t ticks = nrf_drv_timer_us_to_ticks(&m_timer, 25);
+    nrf_drv_timer_extended_compare(&m_timer,
+                                   NRF_TIMER_CC_CHANNEL2,
+                                   ticks,
+                                   NRF_TIMER_SHORT_COMPARE2_CLEAR_MASK,
+                                   false);
+    nrf_drv_timer_enable(&m_timer);
+
+    // 设置PPI两端的通道，一个是比较事件，一个是adc采集任务
+    uint32_t timer_compare_event_addr = nrf_drv_timer_compare_event_address_get(&m_timer,
+                                                                                NRF_TIMER_CC_CHANNEL2);
+    uint32_t saadc_sample_task_addr   = nrf_drv_saadc_sample_task_get();
+
+    /* setup ppi channel so that timer compare event is triggering sample task in SAADC */
+    err_code = nrf_drv_ppi_channel_alloc(&m_ppi_channel);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_drv_ppi_channel_assign(m_ppi_channel,
+                                          timer_compare_event_addr,
+                                          saadc_sample_task_addr);
+    APP_ERROR_CHECK(err_code);
+}
+
+
+void saadc_sampling_event_enable(void)
+{
+    // 使能PPI通道
+    ret_code_t err_code = nrf_drv_ppi_channel_enable(m_ppi_channel);
+
+    APP_ERROR_CHECK(err_code);
+}
+
+int i = 0;
+int k = 0;
+uint8_t reg_x = (1<<CSB);
+uint8_t reg_y = (1<<CSA);
+
+void loop_init(void) {
+  i = 0;
+  k = 0;
+  reg_x = (1<<CSB);
+  reg_y = (1<<CSA);
+  set_mux(reg_x);
+  set_mux(reg_y);
+}
+
+void send_data(void) {
+	//截短DataRead
+	for(int i=0;i<256;i+=8){
+		for(int j=0;j<7;j++){
+			uint8_t now=DataRead[i+j],next = DataRead[i+j+1];
+			DataRead_short[i/8*7 + j] = ((now>>1)<<(j+1))|(next>>(7-j));
+		}
+	}
+
+	// 上传数据到主机
+	ble_lbs_on_button_change1(m_conn_handle, &m_lbs, DataRead_short);
+	
+	// add by cwh
+	static int count = 0;
+	count++;
+	if (count == 200) {
+		NRF_LOG_INFO("send 200 times");
+		count = 0;
+	}
+}
+
+void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
+{
+    // adc采集中断回调函数
+
+    if (p_event->type == NRF_DRV_SAADC_EVT_DONE)
+    {
+        ret_code_t err_code;
+
+				// 为下次采样准备好缓存
+        err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, SAMPLES_IN_BUFFER);
+        APP_ERROR_CHECK(err_code);
+
+        // 未连接蓝牙，则不向下执行
+        if(m_conn_handle == BLE_CONN_HANDLE_INVALID) {
+            loop_init();
+            return;
+        }
+
+				// 读取adc采样转换值
+        nrf_saadc_value_t saadc_val = p_event->data.done.p_buffer[0];
+        DataRead[16*i+k] = saadc_val;
+
+				// NRF_LOG_INFO("i=%d  k=%d", i, k);
+				
+        k++;
+        if (k == 16) {
+					i++;
+          if (i == 16) {
+            send_data();
+            loop_init();
+          } else {
+            k = 0;
+            reg_y = (1<<CSA);
+            reg_x++;
+            set_mux(reg_x);
+            set_mux(reg_y);
+          }
+        } else {
+          reg_y++;
+          set_mux(reg_y);
+        }
+    }
+}
+
+
+void saadc_init_ppi(void)
+{
+    ret_code_t err_code;
+    nrf_saadc_channel_config_t channel_config =
+        NRF_DRV_SAADC_DEFAULT_CHANNEL_CONFIG_SE(NRF_SAADC_INPUT_AIN3);
+
+	// add by cwh
+		// channel_config.acq_time = NRF_SAADC_ACQTIME_5US;
+
+    err_code = nrf_drv_saadc_init(NULL, saadc_callback2);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_drv_saadc_channel_init(0, &channel_config);
+    APP_ERROR_CHECK(err_code);
+
+    // 配置一个缓冲
+    err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[0], SAMPLES_IN_BUFFER);
+    APP_ERROR_CHECK(err_code);
+
+		// 配置第二个缓冲
+    // err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[1], SAMPLES_IN_BUFFER);
+    // APP_ERROR_CHECK(err_code);
+
+    loop_init();
+}
+
+void saadc_callback_out(nrf_drv_saadc_evt_t const * p_event)
+{
+    if (p_event->type == NRF_DRV_SAADC_EVT_DONE)
+    {
+        // NRF_LOG_INFO("## saadc int start");
+        ret_code_t err_code;
+
+        // 为下次采样准备好缓存
+        err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, SAMPLES_IN_BUFFER);
+        APP_ERROR_CHECK(err_code);
+
+        // 读取adc采样转换值
+        out_voltage = p_event->data.done.p_buffer[0];
+        cnt += 1;
+
+        NRF_LOG_INFO("## saadc int end");
+    }
+}
+
+void saadc_init_out(void)
+{
+    ret_code_t err_code;
+    nrf_saadc_channel_config_t channel_config =
+            NRF_DRV_SAADC_DEFAULT_CHANNEL_CONFIG_SE(NRF_SAADC_INPUT_AIN3);
+  // add by cwh
+    channel_config.acq_time = NRF_SAADC_ACQTIME_3US;
+
+    err_code = nrf_drv_saadc_init(NULL, saadc_callback_out);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_drv_saadc_channel_init(0, &channel_config);
+    APP_ERROR_CHECK(err_code);
+
+    // 配置一个缓冲
+    err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[0], SAMPLES_IN_BUFFER);
+    APP_ERROR_CHECK(err_code);
+
+  // // ref: https://devzone.nordicsemi.com/f/nordic-q-a/27747/saadc-using-local-timer
+ //    uint32_t const numberOfSamples= 1;
+ //    int16_t sampleBuffer[numberOfSamples]= {0};
+
+  //   uint32_t samplingRate= 8000;
+ //    NRF_SAADC->SAMPLERATE = (16000000/samplingRate);      // [80..2047] Capture and compare value. Sample rate is 16 MHz/CC
+ //    NRF_SAADC->SAMPLERATE|= SAADC_SAMPLERATE_MODE_Timers  // Rate is controlled from local timer (use CC to control the rate)
+ //                        << SAADC_SAMPLERATE_MODE_Pos;
+
+ //    NRF_SAADC->RESULT.PTR = (uint32_t)sampleBuffer;
+ //    NRF_SAADC->RESULT.MAXCNT = numberOfSamples;
+    
+  //  nrf_saadc_task_trigger(NRF_SAADC_TASK_START);
+}
 
 /**@brief Function for application main entry.
  */
@@ -688,21 +942,26 @@ int main(void)
     // Initialize.
     log_init();
     leds_init();
-	  
+
     timers_init();
     buttons_init();
     power_management_init();
     ble_stack_init();
     gap_params_init();
     gatt_init();
-	
-	
-	  ADG725_spi_init();
-	  saadc_init();
-		timers_init1();
-		application_timers_start();
-	
-	
+
+    ADG725_spi_init();
+
+    // saadc_init();
+    // // saadc_init_quick_sample();
+    // // saadc_init_out();
+    // timers_init1();
+    // application_timers_start();
+
+    saadc_init_ppi();
+    saadc_sampling_event_init();
+    saadc_sampling_event_enable();
+
     services_init();
     advertising_init();
     conn_params_init();
