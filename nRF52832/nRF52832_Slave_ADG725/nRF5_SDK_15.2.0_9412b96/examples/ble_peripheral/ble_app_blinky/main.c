@@ -835,7 +835,14 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
 
 				// 读取adc采样转换值
         nrf_saadc_value_t saadc_val = p_event->data.done.p_buffer[0];
-        DataRead[16*i+k] = saadc_val;
+				if (saadc_val < 0) {
+					DataRead[16*i+k] = 0;
+				} else if (saadc_val > 255) {
+					DataRead[16*i+k] = 255;
+				} else {
+					DataRead[16*i+k] = saadc_val;
+				}
+				
 
 				// NRF_LOG_INFO("i=%d  k=%d", i, k);
 				
