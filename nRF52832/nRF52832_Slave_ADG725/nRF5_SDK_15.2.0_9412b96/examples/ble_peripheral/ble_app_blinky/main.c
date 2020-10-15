@@ -620,7 +620,7 @@ void saadc_init_quick_sample(void)
 #define CSB 5
 static void thi_monitor_handler(void)
 {
-	// Èç¹ûÒÑ¾­Á¬½ÓÉÏ£¬ÔòÉÏ´«Êý¾Ýµ½Ö÷»ú£¬·ñÔò²»Ö´ÐÐºóÃæµÄ²Ù×÷
+	// ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï£ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½Ðºï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½
 	if(m_conn_handle == BLE_CONN_HANDLE_INVALID) {
 		return;
 	}
@@ -650,7 +650,7 @@ static void thi_monitor_handler(void)
 			reg_x++;
 		}
 		
-		//½Ø¶ÌDataRead
+		//ï¿½Ø¶ï¿½DataRead
 		for(int i=0;i<256;i+=8){
 			for(int j=0;j<7;j++){
 				uint8_t now=DataRead[i+j],next = DataRead[i+j+1];
@@ -673,7 +673,7 @@ static void thi_monitor_handler(void)
 			}
 }
 
-//¶¨Ê±Æ÷³¬Ê±ÖÐ¶Ï²Ù×÷
+//ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ð¶Ï²ï¿½ï¿½ï¿½
 static void thi_monitor_timeout_handler(nrf_timer_event_t event_type,void * p_context)
 {
 	    switch (event_type)
@@ -698,7 +698,7 @@ static void timers_init1(void)
     // Initialize timer module, making it use the scheduler
 		// APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_OP_QUEUE_SIZE, false);
 	
-	  // ´´½¨Ò»¸öÖÜÆÚÖ´ÐÐµÄ¶¨Ê±Æ÷£¬ÓÃÓÚ´¥·¢AD
+	  // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ÐµÄ¶ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½AD
     nrf_drv_timer_config_t timer_cfg = NRF_DRV_TIMER_DEFAULT_CONFIG;
     timer_cfg.bit_width = NRF_TIMER_BIT_WIDTH_32;
     err_code = nrf_drv_timer_init(&m_timer, &timer_cfg, thi_monitor_timeout_handler);
@@ -706,7 +706,7 @@ static void timers_init1(void)
 }
 
 
-//¶¨Ê±Æ÷¿ªÊ¼¼ÆÊ±£¬Ê±¼ä¼ä¸ô __ ms
+//ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½Ê±ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ __ ms
 /**@brief Function for starting application timers.
  */
 static void application_timers_start(void)
@@ -747,7 +747,7 @@ void saadc_sampling_event_init(void)
     APP_ERROR_CHECK(err_code);
 
     /* setup m_timer for compare event every __ ms/us */
-    // ÉèÖÃ¶¨Ê±£¬²¶»ñ/±È½ÏÍ¨µÀ£¬±È½ÏÖµ£¬Çå³ý±È½ÏÈÎÎñ£¬¹Ø±ÕÊ±ÖÓÖÐ¶Ï
+    // ï¿½ï¿½ï¿½Ã¶ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½È½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½È½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È½ï¿½ï¿½ï¿½ï¿½ñ£¬¹Ø±ï¿½Ê±ï¿½ï¿½ï¿½Ð¶ï¿½
     uint32_t ticks = nrf_drv_timer_us_to_ticks(&m_timer, 25);
     nrf_drv_timer_extended_compare(&m_timer,
                                    NRF_TIMER_CC_CHANNEL2,
@@ -756,7 +756,7 @@ void saadc_sampling_event_init(void)
                                    false);
     nrf_drv_timer_enable(&m_timer);
 
-    // ÉèÖÃPPIÁ½¶ËµÄÍ¨µÀ£¬Ò»¸öÊÇ±È½ÏÊÂ¼þ£¬Ò»¸öÊÇadc²É¼¯ÈÎÎñ
+    // ï¿½ï¿½ï¿½ï¿½PPIï¿½ï¿½ï¿½Ëµï¿½Í¨ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ç±È½ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½adcï¿½É¼ï¿½ï¿½ï¿½ï¿½ï¿½
     uint32_t timer_compare_event_addr = nrf_drv_timer_compare_event_address_get(&m_timer,
                                                                                 NRF_TIMER_CC_CHANNEL2);
     uint32_t saadc_sample_task_addr   = nrf_drv_saadc_sample_task_get();
@@ -774,7 +774,7 @@ void saadc_sampling_event_init(void)
 
 void saadc_sampling_event_enable(void)
 {
-    // Ê¹ÄÜPPIÍ¨µÀ
+    // Ê¹ï¿½ï¿½PPIÍ¨ï¿½ï¿½
     ret_code_t err_code = nrf_drv_ppi_channel_enable(m_ppi_channel);
 
     APP_ERROR_CHECK(err_code);
@@ -795,7 +795,7 @@ void loop_init(void) {
 }
 
 void send_data(void) {
-	//½Ø¶ÌDataRead
+	//ï¿½Ø¶ï¿½DataRead
 	for(int i=0;i<256;i+=8){
 		for(int j=0;j<7;j++){
 			uint8_t now=DataRead[i+j],next = DataRead[i+j+1];
@@ -803,7 +803,7 @@ void send_data(void) {
 		}
 	}
 
-	// ÉÏ´«Êý¾Ýµ½Ö÷»ú
+	// ï¿½Ï´ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½ï¿½ï¿½
 	ble_lbs_on_button_change1(m_conn_handle, &m_lbs, DataRead_short);
 	
 	// add by cwh
@@ -817,23 +817,23 @@ void send_data(void) {
 
 void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
 {
-    // adc²É¼¯ÖÐ¶Ï»Øµ÷º¯Êý
+    // adcï¿½É¼ï¿½ï¿½Ð¶Ï»Øµï¿½ï¿½ï¿½ï¿½ï¿½
 
     if (p_event->type == NRF_DRV_SAADC_EVT_DONE)
     {
         ret_code_t err_code;
 
-				// ÎªÏÂ´Î²ÉÑù×¼±¸ºÃ»º´æ
+				// Îªï¿½Â´Î²ï¿½ï¿½ï¿½×¼ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½
         err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, SAMPLES_IN_BUFFER);
         APP_ERROR_CHECK(err_code);
 
-        // Î´Á¬½ÓÀ¶ÑÀ£¬Ôò²»ÏòÏÂÖ´ÐÐ
+        // Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ï¿½
         if(m_conn_handle == BLE_CONN_HANDLE_INVALID) {
             loop_init();
             return;
         }
 
-				// ¶ÁÈ¡adc²ÉÑù×ª»»Öµ
+				// ï¿½ï¿½È¡adcï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½Öµ
         nrf_saadc_value_t saadc_val = p_event->data.done.p_buffer[0];
 				if (saadc_val < 0) {
 					DataRead[16*i+k] = 0;
@@ -860,7 +860,15 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
             set_mux(reg_y);
           }
         } else {
-          reg_y++;
+          // reg_y++;
+					uint8_t tmp = reg_y & 0x0F;
+					if (tmp > 7) {
+						reg_y--;
+					} else if (tmp == 7) {
+						reg_y = (1<<CSA) + 15;
+					} else {
+						reg_y++;
+					}
           set_mux(reg_y);
         }
     }
@@ -882,11 +890,11 @@ void saadc_init_ppi(void)
     err_code = nrf_drv_saadc_channel_init(0, &channel_config);
     APP_ERROR_CHECK(err_code);
 
-    // ÅäÖÃÒ»¸ö»º³å
+    // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[0], SAMPLES_IN_BUFFER);
     APP_ERROR_CHECK(err_code);
 
-		// ÅäÖÃµÚ¶þ¸ö»º³å
+		// ï¿½ï¿½ï¿½ÃµÚ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     // err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[1], SAMPLES_IN_BUFFER);
     // APP_ERROR_CHECK(err_code);
 
@@ -900,11 +908,11 @@ void saadc_callback_out(nrf_drv_saadc_evt_t const * p_event)
         // NRF_LOG_INFO("## saadc int start");
         ret_code_t err_code;
 
-        // ÎªÏÂ´Î²ÉÑù×¼±¸ºÃ»º´æ
+        // Îªï¿½Â´Î²ï¿½ï¿½ï¿½×¼ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ï¿½
         err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, SAMPLES_IN_BUFFER);
         APP_ERROR_CHECK(err_code);
 
-        // ¶ÁÈ¡adc²ÉÑù×ª»»Öµ
+        // ï¿½ï¿½È¡adcï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½Öµ
         out_voltage = p_event->data.done.p_buffer[0];
         cnt += 1;
 
@@ -926,7 +934,7 @@ void saadc_init_out(void)
     err_code = nrf_drv_saadc_channel_init(0, &channel_config);
     APP_ERROR_CHECK(err_code);
 
-    // ÅäÖÃÒ»¸ö»º³å
+    // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[0], SAMPLES_IN_BUFFER);
     APP_ERROR_CHECK(err_code);
 
