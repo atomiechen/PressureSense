@@ -1,3 +1,5 @@
 _build
 JLinkLog.txt
-*.uvguix.atomi
+*.uvguix.*
+Listings/
+Objects/
