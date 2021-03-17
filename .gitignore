@@ -3,3 +3,5 @@ JLinkLog.txt
 *.uvguix.*
 Listings/
 Objects/
+*.hex
+*.zip
