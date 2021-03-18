@@ -507,8 +507,8 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
-      <PathWithFileName>..\..\..\..\..\..\components\ble\ble_services\ble_nus_c\ble_nus_c.c</PathWithFileName>
-      <FilenameWithoutPath>ble_nus_c.c</FilenameWithoutPath>
+      <PathWithFileName>..\..\..\..\..\..\components\ble\ble_services\ble_nus_c_new\ble_nus_c_new.c</PathWithFileName>
+      <FilenameWithoutPath>ble_nus_c_new.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
