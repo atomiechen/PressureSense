@@ -26,4 +26,26 @@ nRF_svc
 	components\libraries\bootloader\dfu\nrf_dfu_svci.c
 
 
+---
+
+
+Generate keys:
+
+nrfutil keys generate private.key
+nrfutil keys display --key pk --format code private.key --out_file dfu_public_key.c
+
+
+Generate zip file:
+
 nrfutil pkg generate --hw-version 52 --application-version 1 --application nrf52832_xxaa.hex --sd-req 0xaf --key-file private.key ADG725_output.zip
+
+
+Generate setting file:
+
+nrfutil settings generate --family NRF52 --application-version 1 --application nrf52832_xxaa.hex --bootloader-version 1 --bl-settings-version 1 app_setting.hex
+
+
+Merge multiple HEX files:
+
+mergehex --merge s132_nrf52_6.1.0_softdevice.hex boot.hex nrf52832_xxaa.hex --output tmp3to1.hex
+mergehex --merge tmp3to1.hex app_setting.hex --output merged.hex
