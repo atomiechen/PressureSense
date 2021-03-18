@@ -22,6 +22,14 @@ static const nrf_drv_spi_t spi = NRF_DRV_SPI_INSTANCE(SPI_INSTANCE);  /**< SPI i
 static uint8_t    spi_tx_buf[256];   /**< TX buffer. */
 static uint8_t    spi_rx_buf[256];   /**< RX buffer. */
 
+
+int i = 0;
+int k = 0;
+uint8_t reg_x = (1<<CSB);
+uint8_t reg_y = (1<<CSA);
+
+
+
 //spi 初始化
 void ADG725_spi_init(void)
 {
@@ -55,4 +63,61 @@ void ADG725_spi_clear(void)
 		nrf_gpio_pin_clear(SPI_MOSI_PIN);
 		nrf_gpio_pin_clear(SYNC);
 		nrf_gpio_pin_clear(SPI_SCK_PIN);
+}
+
+void loop_init(void) {
+  i = 0;
+  k = 0;
+  reg_x = (1<<CSB);
+  reg_y = (1<<CSA);
+  set_mux(reg_x);
+  set_mux(reg_y);
+}
+
+void move_to_next_16_16_square(void (*send_data)(void)) {
+  k++;
+  if (k == 16) {
+    i++;
+    if (i == 16) {
+      send_data();
+      loop_init();
+    } else {
+      k = 0;
+      reg_y = (1<<CSA);
+      reg_x++;
+      set_mux(reg_x);
+      set_mux(reg_y);
+    }
+  } else {
+    reg_y++;
+    set_mux(reg_y);
+  }
+}
+
+void move_to_next_16_16_trapezoid(void (*send_data)(void)) {
+  k++;
+  if (k == 16) {
+    i++;
+    if (i == 16) {
+      send_data();
+      loop_init();
+    } else {
+      k = 0;
+      reg_y = (1<<CSA);
+      reg_x++;
+      set_mux(reg_x);
+      set_mux(reg_y);
+    }
+  } else {
+    // reg_y++;
+    uint8_t tmp = reg_y & 0x0F;
+    if (tmp > 7) {
+      reg_y--;
+    } else if (tmp == 7) {
+      reg_y = (1<<CSA) + 15;
+    } else {
+      reg_y++;
+    }
+    set_mux(reg_y);
+  }
 }
