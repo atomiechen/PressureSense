@@ -616,8 +616,6 @@ void saadc_init_quick_sample(void)
 
 }
 
-#define CSA 6
-#define CSB 5
 static void thi_monitor_handler(void)
 {
 	// 如果已经连接上，则上传数据到主机，否则不执行后面的操作
@@ -780,20 +778,6 @@ void saadc_sampling_event_enable(void)
     APP_ERROR_CHECK(err_code);
 }
 
-int i = 0;
-int k = 0;
-uint8_t reg_x = (1<<CSB);
-uint8_t reg_y = (1<<CSA);
-
-void loop_init(void) {
-  i = 0;
-  k = 0;
-  reg_x = (1<<CSB);
-  reg_y = (1<<CSA);
-  set_mux(reg_x);
-  set_mux(reg_y);
-}
-
 void send_data(void) {
 	//截短DataRead
 	for(int i=0;i<256;i+=8){
@@ -815,6 +799,8 @@ void send_data(void) {
 	}
 }
 
+// 函数指针，根据传感器选择相应的遍历规则
+void (*move_to_next)(void (*)(void)) = move_to_next_16_16_trapezoid;
 void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
 {
     // adc采集中断回调函数
@@ -823,7 +809,7 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
     {
         ret_code_t err_code;
 
-				// 为下次采样准备好缓存
+        // 为下次采样准备好缓存
         err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, SAMPLES_IN_BUFFER);
         APP_ERROR_CHECK(err_code);
 
@@ -833,44 +819,20 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
             return;
         }
 
-				// 读取adc采样转换值
+        // 读取adc采样转换值
         nrf_saadc_value_t saadc_val = p_event->data.done.p_buffer[0];
-				if (saadc_val < 0) {
-					DataRead[16*i+k] = 0;
-				} else if (saadc_val > 255) {
-					DataRead[16*i+k] = 255;
-				} else {
-					DataRead[16*i+k] = saadc_val;
-				}
-				
-
-				// NRF_LOG_INFO("i=%d  k=%d", i, k);
-				
-        k++;
-        if (k == 16) {
-					i++;
-          if (i == 16) {
-            send_data();
-            loop_init();
-          } else {
-            k = 0;
-            reg_y = (1<<CSA);
-            reg_x++;
-            set_mux(reg_x);
-            set_mux(reg_y);
-          }
+        uint8_t * ptr = DataRead + get_index();
+        if (saadc_val < 0) {
+          *ptr = 0;
+        } else if (saadc_val > 255) {
+          *ptr = 255;
         } else {
-          // reg_y++;
-					uint8_t tmp = reg_y & 0x0F;
-					if (tmp > 7) {
-						reg_y--;
-					} else if (tmp == 7) {
-						reg_y = (1<<CSA) + 15;
-					} else {
-						reg_y++;
-					}
-          set_mux(reg_y);
+          *ptr = saadc_val;
         }
+        
+
+        // NRF_LOG_INFO("i=%d  k=%d", i, k);
+        move_to_next(send_data);
     }
 }
 
