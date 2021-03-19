@@ -912,7 +912,7 @@ void saadc_sampling_event_init(void)
     APP_ERROR_CHECK(err_code);
 
     /* setup m_timer for compare event every __ ms/us */
-    // ÉèÖÃ¶¨Ê±£¬²¶»ñ/±È½ÏÍ¨µÀ£¬±È½ÏÖµ£¬Çå³ı±È½ÏÈÎÎñ£¬¹Ø±ÕÊ±ÖÓÖĞ¶Ï
+    // è®¾ç½®å®šæ—¶ï¼Œæ•è·/æ¯”è¾ƒé€šé“ï¼Œæ¯”è¾ƒå€¼ï¼Œæ¸…é™¤æ¯”è¾ƒä»»åŠ¡ï¼Œå…³é—­æ—¶é’Ÿä¸­æ–­
     uint32_t ticks = nrf_drv_timer_us_to_ticks(&m_timer, 25);
     nrf_drv_timer_extended_compare(&m_timer,
                                    NRF_TIMER_CC_CHANNEL2,
@@ -921,7 +921,7 @@ void saadc_sampling_event_init(void)
                                    false);
 
 
-    // ÉèÖÃPPIÁ½¶ËµÄÍ¨µÀ£¬Ò»¸öÊÇ±È½ÏÊÂ¼ş£¬Ò»¸öÊÇadc²É¼¯ÈÎÎñ
+    // è®¾ç½®PPIä¸¤ç«¯çš„é€šé“ï¼Œä¸€ä¸ªæ˜¯æ¯”è¾ƒäº‹ä»¶ï¼Œä¸€ä¸ªæ˜¯adcé‡‡é›†ä»»åŠ¡
     uint32_t timer_compare_event_addr = nrf_drv_timer_compare_event_address_get(&m_timer,
                                                                                 NRF_TIMER_CC_CHANNEL2);
     uint32_t saadc_sample_task_addr   = nrf_drv_saadc_sample_task_get();
@@ -939,21 +939,21 @@ void saadc_sampling_event_init(void)
 
 void saadc_sampling_event_enable(void)
 {
-		// Ê¹ÄÜ¶¨Ê±Æ÷
+		// ä½¿èƒ½å®šæ—¶å™¨
 	   nrf_drv_timer_enable(&m_timer);
 	
-    // Ê¹ÄÜPPIÍ¨µÀ
+    // ä½¿èƒ½PPIé€šé“
     ret_code_t err_code = nrf_drv_ppi_channel_enable(m_ppi_channel);
     APP_ERROR_CHECK(err_code);
 	
-	   // ÅäÖÃÒ»¸ö»º³å
+	   // é…ç½®ä¸€ä¸ªç¼“å†²
     err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[0], SAMPLES_IN_BUFFER);
     APP_ERROR_CHECK(err_code);
 
 }
 
 void send_data(void) {
-	//½Ø¶ÌDataRead
+	//æˆªçŸ­DataRead
 	for(int i=0;i<256;i+=8){
 		for(int j=0;j<7;j++){
 			uint8_t now=DataRead[i+j],next = DataRead[i+j+1];
@@ -961,7 +961,7 @@ void send_data(void) {
 		}
 	}
 
-	// ÉÏ´«Êı¾İµ½Ö÷»ú
+	// ä¸Šä¼ æ•°æ®åˆ°ä¸»æœº
 	ble_lbs_on_button_change1(m_conn_handle, &m_lbs, DataRead_short);
 	
 	// add by cwh
@@ -973,28 +973,28 @@ void send_data(void) {
 	}
 }
 
-// º¯ÊıÖ¸Õë£¬¸ù¾İ´«¸ĞÆ÷Ñ¡ÔñÏàÓ¦µÄ±éÀú¹æÔò
+// å‡½æ•°æŒ‡é’ˆï¼Œæ ¹æ®ä¼ æ„Ÿå™¨é€‰æ‹©ç›¸åº”çš„éå†è§„åˆ™
 void (*move_to_next)(void (*)(void)) = move_to_next_16_16_trapezoid;
 void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
 {
-    // adc²É¼¯ÖĞ¶Ï»Øµ÷º¯Êı
+    // adcé‡‡é›†ä¸­æ–­å›è°ƒå‡½æ•°
 
     if (p_event->type == NRF_DRV_SAADC_EVT_DONE)
     {
 
-        // Î´Á¬½ÓÀ¶ÑÀ£¬Ôò²»ÏòÏÂÖ´ĞĞ
+        // æœªè¿æ¥è“ç‰™ï¼Œåˆ™ä¸å‘ä¸‹æ‰§è¡Œ
         if(m_conn_handle == BLE_CONN_HANDLE_INVALID) {
             ADG725_spi_uninit();
             ADG725_spi_clear();
             return;
         }
         
-        // ÎªÏÂ´Î²ÉÑù×¼±¸ºÃ»º´æ
+        // ä¸ºä¸‹æ¬¡é‡‡æ ·å‡†å¤‡å¥½ç¼“å­˜
         ret_code_t err_code;
         err_code = nrf_drv_saadc_buffer_convert(p_event->data.done.p_buffer, SAMPLES_IN_BUFFER);
         APP_ERROR_CHECK(err_code);
         
-        // ¶ÁÈ¡adc²ÉÑù×ª»»Öµ
+        // è¯»å–adcé‡‡æ ·è½¬æ¢å€¼
         nrf_saadc_value_t saadc_val = p_event->data.done.p_buffer[0];
         uint8_t * ptr = DataRead + get_index();
         if (saadc_val < 0) {
@@ -1050,17 +1050,17 @@ int main(void)
     buttons_init();
     power_management_init();
     ble_stack_init();
-	  peer_manager_init();
+    peer_manager_init();
     gap_params_init();
     gatt_init();
 
-	  nrf_gpio_cfg_output(power_pin);
-	  nrf_gpio_pin_clear(power_pin);
-		nrf_gpio_cfg_output(8);
-		nrf_gpio_cfg_output(6);
-		nrf_gpio_cfg_output(15);
+    nrf_gpio_cfg_output(power_pin);
+    nrf_gpio_pin_clear(power_pin);
+    nrf_gpio_cfg_output(8);
+    nrf_gpio_cfg_output(6);
+    nrf_gpio_cfg_output(15);
     ADG725_spi_clear();  
-	  //ADG725_spi_init();
+    //ADG725_spi_init();
 
     // saadc_init();
     // // saadc_init_quick_sample();
@@ -1078,41 +1078,41 @@ int main(void)
     // Start execution.
     NRF_LOG_INFO("ADG725 example started.");
     advertising_start(false);
-		
+
     //saadc_sampling_event_enable();
     // Enter main loop.
     for (;;)
     {
-			  if(temp_connect==true)
-				{
-					if(flag_connect==true){
-						
-						//³õÊ¼»¯spi
-						ADG725_spi_init();
-						
-						//power_pinÀ­¸ß£¬Ê¹ÄÜ¸ºÔØ¿ª¹Ø£¬¸øADG725¹©µç
-						nrf_gpio_pin_set(power_pin);
-						
-						//Ê¹ÄÜ¶¨Ê±Æ÷¡¢ppi¼°ÉèÖÃµÚÒ»¸ö»º³å
-						saadc_sampling_event_enable();
-					}
-					else{//À¶ÑÀ¶Ï¿ªÊ±µÄ¸÷¸öµÍ¹¦ºÄÉèÖÃ
-						
-						//power_pinÀ­µÍ£¬¹Ø±Õ¸ºÔØ¿ª¹Ø
-						nrf_gpio_pin_clear(power_pin);
-   					
-						//½ûÓÃ¶¨Ê±Æ÷¡¢ppi
-						nrf_drv_ppi_channel_disable(m_ppi_channel);
-						nrf_drv_timer_disable(&m_timer);
-						
-						//È¡Ïûspi³õÊ¼»¯²¢½«Ã¿¸öÍ¨ĞÅ¹Ü½ÅÀ­µÍ£¬·ñÔòMOSI»áÓĞÊ±Êä³ö¸ßµçÆ½
-						ADG725_spi_uninit();
-						ADG725_spi_clear();
-					}
-					temp_connect=false;
-				}
+      if(temp_connect==true)
+      {
+        if(flag_connect==true){
+          
+          //åˆå§‹åŒ–spi
+          ADG725_spi_init();
+          
+          //power_pinæ‹‰é«˜ï¼Œä½¿èƒ½è´Ÿè½½å¼€å…³ï¼Œç»™ADG725ä¾›ç”µ
+          nrf_gpio_pin_set(power_pin);
+          
+          //ä½¿èƒ½å®šæ—¶å™¨ã€ppiåŠè®¾ç½®ç¬¬ä¸€ä¸ªç¼“å†²
+          saadc_sampling_event_enable();
+        }
+        else{//è“ç‰™æ–­å¼€æ—¶çš„å„ä¸ªä½åŠŸè€—è®¾ç½®
+          
+          //power_pinæ‹‰ä½ï¼Œå…³é—­è´Ÿè½½å¼€å…³
+          nrf_gpio_pin_clear(power_pin);
+          
+          //ç¦ç”¨å®šæ—¶å™¨ã€ppi
+          nrf_drv_ppi_channel_disable(m_ppi_channel);
+          nrf_drv_timer_disable(&m_timer);
+          
+          //å–æ¶ˆspiåˆå§‹åŒ–å¹¶å°†æ¯ä¸ªé€šä¿¡ç®¡è„šæ‹‰ä½ï¼Œå¦åˆ™MOSIä¼šæœ‰æ—¶è¾“å‡ºé«˜ç”µå¹³
+          ADG725_spi_uninit();
+          ADG725_spi_clear();
+        }
+        temp_connect=false;
+      }
 
-        idle_state_handle();
+      idle_state_handle();
     }
 
 }

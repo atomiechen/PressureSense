@@ -221,7 +221,7 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
 					}
 			} while (ret_val == NRF_ERROR_BUSY);
 		
-		//À©ÔöÊıÁĞ
+		//æ‰©å¢æ•°åˆ—
 		uint8_t Data_long[256];
 		for(int i=0;i<224;i+=7){
 			int group=i/7;
