@@ -65,6 +65,8 @@
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
+#include "matrix_sensor_util.h"
+
 
 #define APP_BLE_CONN_CFG_TAG    1                                       /**< Tag that refers to the BLE stack configuration set with @ref sd_ble_cfg_set. The default tag is @ref BLE_CONN_CFG_TAG_DEFAULT. */
 #define APP_BLE_OBSERVER_PRIO   3                                       /**< BLE observer priority of the application. There is no need to modify this value. */
@@ -211,44 +213,43 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
 
     //NRF_LOG_DEBUG("Receiving data.");
     //NRF_LOG_HEXDUMP_DEBUG(p_data, data_len);
-			do
-			{
-					ret_val = app_uart_put(0xFF);
-					if ((ret_val != NRF_SUCCESS) && (ret_val != NRF_ERROR_BUSY))
-					{
-						NRF_LOG_ERROR("TX_put failed.");
-						 // APP_ERROR_CHECK(ret_val);
-					}
-			} while (ret_val == NRF_ERROR_BUSY);
-		
-		//扩增数列
-		uint8_t Data_long[256];
-		for(int i=0;i<224;i+=7){
-			int group=i/7;
-			Data_long[group*8]=p_data[i]&0xFE;;
-			for(int j=1;j<7;j++){
-				char now=p_data[i+j],last=p_data[i+j-1];
-				Data_long[group*8+j]=(last<<(8-j)|now>>j)&0xFE;
-			}
-			Data_long[group*8+7]=p_data[i+6]<<1;
-		}
-
-		if(on_hvx_flag==0)
+    do
     {
-			for (uint32_t i = 0; i < 256; i++)
-			{
+        ret_val = app_uart_put(0xFF);
+        if ((ret_val != NRF_SUCCESS) && (ret_val != NRF_ERROR_BUSY))
+        {
+          NRF_LOG_ERROR("TX_put failed.");
+           // APP_ERROR_CHECK(ret_val);
+        }
+    } while (ret_val == NRF_ERROR_BUSY);
+  
+    //扩增数列
+    uint8_t Data_long[256];
+    
+    if (data_len == 224) {
+      decompress_data_224(p_data, Data_long);
+      data_len = 256;
+    } else {
+      for (int i = 0; i < data_len; i++) {
+        Data_long[i] = p_data[i];
+      }
+    }
+
+    if(on_hvx_flag==0)
+    {
+      for (uint32_t i = 0; i < data_len; i++)
+      {
         do
         {
             ret_val = app_uart_put(Data_long[i]);
             if ((ret_val != NRF_SUCCESS) && (ret_val != NRF_ERROR_BUSY))
             {
-							NRF_LOG_ERROR("TX_put failed for index 0x?%04x : %04x.", i, ret_val);
+              NRF_LOG_ERROR("TX_put failed for index 0x?%04x : %04x.", i, ret_val);
                // APP_ERROR_CHECK(ret_val);
             }
         } while (ret_val == NRF_ERROR_BUSY);
-			}
-		}
-		
+      }
+    }
 }
 
 
