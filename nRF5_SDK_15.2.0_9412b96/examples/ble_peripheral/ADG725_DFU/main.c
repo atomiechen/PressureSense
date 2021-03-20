@@ -59,7 +59,6 @@
 #include "boards.h"
 #include "app_timer.h"
 #include "app_button.h"
-#include "ble_lbs.h"
 #include "nrf_ble_gatt.h"
 #include "nrf_ble_qwr.h"
 #include "nrf_pwr_mgmt.h"
@@ -70,10 +69,14 @@
 #include "nrf_log.h"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
-#include "ADG725.h"
 
-// add by cwh
+#include "ble_lbs_new.h"
+
+// added
 #include "nrf_drv_ppi.h"
+
+#include "ADG725.h"
+#include "matrix_sensor.h"
 
 //-------------------DFU-----------------------
 #include "nrf_dfu_ble_svci_bond_sharing.h"
@@ -876,13 +879,7 @@ static void idle_state_handle(void)
 }
 
 
-
-
-int counttx=0;
-uint8_t  DataRead[256];
-uint8_t  DataRead_short[224];
-volatile nrf_saadc_value_t out_voltage;
-volatile uint8_t cnt = 0;
+// uint8_t  DataRead[256];
 
 
 #define SAMPLES_IN_BUFFER 1
@@ -952,29 +949,10 @@ void saadc_sampling_event_enable(void)
 
 }
 
-void send_data(void) {
-	//截短DataRead
-	for(int i=0;i<256;i+=8){
-		for(int j=0;j<7;j++){
-			uint8_t now=DataRead[i+j],next = DataRead[i+j+1];
-			DataRead_short[i/8*7 + j] = ((now>>1)<<(j+1))|(next>>(7-j));
-		}
-	}
 
-	// 上传数据到主机
-	ble_lbs_on_button_change1(m_conn_handle, &m_lbs, DataRead_short);
-	
-	// add by cwh
-	static int count = 0;
-	count++;
-	if (count == 200) {
-		NRF_LOG_INFO("send 200 times");
-		count = 0;
-	}
-}
+// 选择传感器方案
+SCH_16_16_TRAPEZOID(sch);
 
-// 函数指针，根据传感器选择相应的遍历规则
-void (*move_to_next)(void (*)(void)) = move_to_next_16_16_trapezoid;
 void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
 {
     // adc采集中断回调函数
@@ -996,16 +974,26 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
         
         // 读取adc采样转换值
         nrf_saadc_value_t saadc_val = p_event->data.done.p_buffer[0];
-        uint8_t * ptr = DataRead + get_index();
+        uint8_t out_voltage = saadc_val;
         if (saadc_val < 0) {
-          *ptr = 0;
+          out_voltage = 0;
         } else if (saadc_val > 255) {
-          *ptr = 255;
-        } else {
-          *ptr = saadc_val;
+          out_voltage = 255;
         }
-
-        move_to_next(send_data);
+        
+        char ret = sch.record_and_move(out_voltage);
+        if (ret == 1) {
+          // send data
+          ble_lbs_send_data(m_conn_handle, &m_lbs, sch.data, sch.data_len);
+          
+          // add by cwh
+          static int count = 0;
+          count++;
+          if (count == 200) {
+            NRF_LOG_INFO("send 200 times");
+            count = 0;
+          }
+        }
 
         if(m_conn_handle == BLE_CONN_HANDLE_INVALID) {
             ADG725_spi_uninit();
@@ -1089,6 +1077,7 @@ int main(void)
           
           //初始化spi
           ADG725_spi_init();
+          sch.loop_init();
           
           //power_pin拉高，使能负载开关，给ADG725供电
           nrf_gpio_pin_set(power_pin);

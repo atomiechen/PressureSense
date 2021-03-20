@@ -95,6 +95,19 @@ NRF_SDH_BLE_OBSERVER(_name ## _obs,                                             
 #define LBS_UUID_BUTTON_CHAR 0x1524
 #define LBS_UUID_LED_CHAR    0x1525
 
+															
+															
+#define OPCODE_LENGTH        1
+#define HANDLE_LENGTH        2
+
+/**@brief   Maximum length of data (in bytes) that can be transmitted to the peer by the Nordic UART service module. */
+#if defined(NRF_SDH_BLE_GATT_MAX_MTU_SIZE) && (NRF_SDH_BLE_GATT_MAX_MTU_SIZE != 0)
+    #define BLE_NUS_MAX_DATA_LEN (NRF_SDH_BLE_GATT_MAX_MTU_SIZE - OPCODE_LENGTH - HANDLE_LENGTH)
+#else
+    #define BLE_NUS_MAX_DATA_LEN (BLE_GATT_MTU_SIZE_DEFAULT - OPCODE_LENGTH - HANDLE_LENGTH)
+    #warning NRF_SDH_BLE_GATT_MAX_MTU_SIZE is not defined.
+#endif
+
 
 // Forward declaration of the ble_lbs_t type.
 typedef struct ble_lbs_s ble_lbs_t;
@@ -149,8 +162,9 @@ void ble_lbs_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context);
  *
  * @retval NRF_SUCCESS If the notification was sent successfully. Otherwise, an error code is returned.
  */
-uint32_t ble_lbs_on_button_change(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8_t button_state);
-
+uint32_t ble_lbs_on_button_change(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8_t  button_state);
+uint32_t ble_lbs_send_data(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8_t * data, uint16_t len);
+uint32_t ble_lbs_on_XX_change(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8_t*  button_state);
 
 #ifdef __cplusplus
 }

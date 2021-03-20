@@ -39,9 +39,10 @@
  */
 #include "sdk_common.h"
 #if NRF_MODULE_ENABLED(BLE_LBS)
-#include "ble_lbs.h"
+#include "ble_lbs_new.h"
 #include "ble_srv_common.h"
 
+#define BLE_NUS_MAX_BUTTON_CHAR_LEN        BLE_NUS_MAX_DATA_LEN /**< Maximum length of the TX Characteristic (in bytes). */
 
 /**@brief Function for handling the Write event.
  *
@@ -103,7 +104,9 @@ uint32_t ble_lbs_init(ble_lbs_t * p_lbs, const ble_lbs_init_t * p_lbs_init)
     add_char_params.uuid              = LBS_UUID_BUTTON_CHAR;
     add_char_params.uuid_type         = p_lbs->uuid_type;
     add_char_params.init_len          = sizeof(uint8_t);
-    add_char_params.max_len           = sizeof(uint8_t);
+    //add_char_params.max_len           = sizeof(uint8_t);
+		add_char_params.max_len           =BLE_NUS_MAX_BUTTON_CHAR_LEN;
+		add_char_params.is_var_len               = true;
     add_char_params.char_props.read   = 1;
     add_char_params.char_props.notify = 1;
 
@@ -134,11 +137,11 @@ uint32_t ble_lbs_init(ble_lbs_t * p_lbs, const ble_lbs_init_t * p_lbs_init)
 }
 
 
-uint32_t ble_lbs_on_button_change(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8_t button_state)
+uint32_t ble_lbs_on_button_change(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8_t  button_state)
 {
     ble_gatts_hvx_params_t params;
     uint16_t len = sizeof(button_state);
-
+		//uint16_t len =20;
     memset(&params, 0, sizeof(params));
     params.type   = BLE_GATT_HVX_NOTIFICATION;
     params.handle = p_lbs->button_char_handles.value_handle;
@@ -147,4 +150,43 @@ uint32_t ble_lbs_on_button_change(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8
 
     return sd_ble_gatts_hvx(conn_handle, &params);
 }
+
+uint32_t ble_lbs_send_data(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8_t * data, uint16_t len)
+{
+  ble_gatts_hvx_params_t params;
+  uint32_t err_code;
+  if (conn_handle != BLE_CONN_HANDLE_INVALID)
+  {
+    memset(&params, 0, sizeof(params));
+    params.type   = BLE_GATT_HVX_NOTIFICATION;
+    params.handle = p_lbs->button_char_handles.value_handle;
+    params.p_data = data;
+    params.p_len  = &len;
+
+    return sd_ble_gatts_hvx(conn_handle, &params);
+  } else{
+    err_code = NRF_ERROR_INVALID_STATE;
+  }
+  return err_code;
+}
+
+uint32_t ble_lbs_on_XX_change(uint16_t conn_handle, ble_lbs_t * p_lbs, uint8_t * button_state)
+{
+    ble_gatts_hvx_params_t params;
+    uint16_t len = 20;
+	  uint32_t err_code;
+	
+
+			memset(&params, 0, sizeof(params));
+      params.type = BLE_GATT_HVX_NOTIFICATION;
+      params.handle = p_lbs->button_char_handles.value_handle;
+      params.p_data = button_state;
+      params.p_len = &len;
+    
+      return sd_ble_gatts_hvx(conn_handle, &params);
+		
+
+    
+}
+
 #endif // NRF_MODULE_ENABLED(BLE_LBS)
