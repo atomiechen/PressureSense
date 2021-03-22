@@ -34,3 +34,13 @@ Keil uvision5
 - 从机无DFU项目：`nRF5_SDK_15.2.0_9412b96\examples\ble_peripheral\ADG725\`
   - 工程文件：`nRF5_SDK_15.2.0_9412b96\examples\ble_peripheral\ADG725\pca10040\s132\arm5_no_packs`
 
+
+
+## DFU文件生成
+
+在`DFU_key`文件夹下，执行`make`命令可生成：
+
+- `ADG725_output.zip`：手机DFU传送包
+- `app_setting.hex`：自动运行application而非停在bootloader模式的设置文件
+- `merged.hex`：将协议栈、bootloader、application和设置文件合并的HEX文件，可一步烧写到位，不必多次烧写
+
