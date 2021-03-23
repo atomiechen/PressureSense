@@ -113,7 +113,6 @@ char record_and_move_4_4_square(uint8_t data) {
 }
 
 char record_and_move_8_8_trapezoid(uint8_t data) {
-  // TODO
   char ret = 0;
   
   // record
@@ -136,10 +135,10 @@ char record_and_move_8_8_trapezoid(uint8_t data) {
   } else {
     // reg_y++;
     uint8_t tmp = reg_y & 0x0F;
-    if (tmp > 7) {
+    if (tmp > 3) {
       reg_y--;
-    } else if (tmp == 7) {
-      reg_y = (1<<CSA) + 15;
+    } else if (tmp == 3) {
+      reg_y = (1<<CSA) + 7;
     } else {
       reg_y++;
     }
