@@ -10,7 +10,7 @@ SETTING = app_setting.hex
 MERGED = merged.hex
 
 ## copy path
-COPY_PATH = ..\nRF5_SDK_15.2.0_9412b96\examples\ble_peripheral\ADG725_DFU\pca10040\s132\arm5_no_packs\_build\nrf52832_xxaa.hex
+COPY_PATH = ..\nRF5_SDK_15.2.0_9412b96\examples\ble_peripheral\ADG725_DFU\pca10040\s132\arm5_no_packs\_build\$(APP)
 
 ## temp file
 TMP = tmp3to1.hex
@@ -20,7 +20,7 @@ TMP = tmp3to1.hex
 
 all: clean copy zip setting merged
 
-copy:
+copy: $(COPY_PATH)
 	copy $(COPY_PATH) .
 
 zip: $(APP) $(KEY)
