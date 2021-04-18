@@ -17,8 +17,10 @@ void loop_init(void) {
   k = 0;
   reg_x = (1<<CSB);
   reg_y = (1<<CSA);
-  set_mux(reg_x);
-  set_mux(reg_y);
+  // set_mux(reg_x);
+  // set_mux(reg_y);
+  // 一步操作，不要分两步完成
+  set_mux(0);
 }
 
 char record_and_move_16_16_square(uint8_t data) {
@@ -39,8 +41,9 @@ char record_and_move_16_16_square(uint8_t data) {
       k = 0;
       reg_y = (1<<CSA);
       reg_x++;
-      set_mux(reg_x);
+      // 先变列再变行，减少对边翘起的现象
       set_mux(reg_y);
+      set_mux(reg_x);
     }
   } else {
     reg_y++;
@@ -67,8 +70,9 @@ char record_and_move_16_16_trapezoid(uint8_t data) {
       k = 0;
       reg_y = (1<<CSA);
       reg_x++;
-      set_mux(reg_x);
+      // 先变列再变行，减少对边翘起的现象
       set_mux(reg_y);
+      set_mux(reg_x);
     }
   } else {
     // reg_y++;
@@ -102,8 +106,9 @@ char record_and_move_4_4_square(uint8_t data) {
       k = 0;
       reg_y = (1<<CSA);
       reg_x++;
-      set_mux(reg_x);
+      // 先变列再变行，减少对边翘起的现象
       set_mux(reg_y);
+      set_mux(reg_x);
     }
   } else {
     reg_y++;
@@ -129,8 +134,9 @@ char record_and_move_8_8_trapezoid(uint8_t data) {
       k = 0;
       reg_y = (1<<CSA);
       reg_x++;
-      set_mux(reg_x);
+      // 先变列再变行，减少对边翘起的现象
       set_mux(reg_y);
+      set_mux(reg_x);
     }
   } else {
     // reg_y++;
