@@ -886,7 +886,7 @@ static void idle_state_handle(void)
 // volatile uint8_t state = 1;
 
 // static const nrf_drv_timer_t m_timer = NRF_DRV_TIMER_INSTANCE(0);
-static nrf_saadc_value_t     m_buffer_pool[1][SAMPLES_IN_BUFFER];
+static nrf_saadc_value_t     m_buffer_pool[2][SAMPLES_IN_BUFFER];
 static nrf_ppi_channel_t     m_ppi_channel;
 static uint32_t              m_adc_evt_counter;
 
@@ -942,9 +942,12 @@ void saadc_sampling_event_enable(void)
     // 使能PPI通道
     ret_code_t err_code = nrf_drv_ppi_channel_enable(m_ppi_channel);
     APP_ERROR_CHECK(err_code);
-	
-	   // 配置一个缓冲
+
+     // 配置一个缓冲
     err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[0], SAMPLES_IN_BUFFER);
+    APP_ERROR_CHECK(err_code);
+     // 配置第二个缓冲
+    err_code = nrf_drv_saadc_buffer_convert(m_buffer_pool[1], SAMPLES_IN_BUFFER);
     APP_ERROR_CHECK(err_code);
 
 }
@@ -1082,7 +1085,7 @@ int main(void)
           //power_pin拉高，使能负载开关，给ADG725供电
           nrf_gpio_pin_set(power_pin);
           
-          //使能定时器、ppi及设置第一个缓冲
+          //使能定时器、ppi及设置缓冲
           saadc_sampling_event_enable();
         }
         else{//蓝牙断开时的各个低功耗设置
