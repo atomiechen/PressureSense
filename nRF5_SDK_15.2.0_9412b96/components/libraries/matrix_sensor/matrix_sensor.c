@@ -10,7 +10,7 @@ int k = 0;
 uint8_t reg_x = (1<<CSB);
 uint8_t reg_y = (1<<CSA);
 
-uint8_t DataRead[256];
+uint8_t DataRead[256 + 9 * sizeof(int16_t)];
 
 void loop_init(void) {
   i = 0;

@@ -71,8 +71,8 @@
 #define APP_BLE_CONN_CFG_TAG    1                                       /**< Tag that refers to the BLE stack configuration set with @ref sd_ble_cfg_set. The default tag is @ref BLE_CONN_CFG_TAG_DEFAULT. */
 #define APP_BLE_OBSERVER_PRIO   3                                       /**< BLE observer priority of the application. There is no need to modify this value. */
 
-#define UART_TX_BUF_SIZE        256                                     /**< UART TX buffer size. */
-#define UART_RX_BUF_SIZE        256                                     /**< UART RX buffer size. */
+#define UART_TX_BUF_SIZE        512                                     /**< UART TX buffer size. */
+#define UART_RX_BUF_SIZE        512                                     /**< UART RX buffer size. */
 
 #define NUS_SERVICE_UUID_TYPE   BLE_UUID_TYPE_VENDOR_BEGIN              /**< UUID type for the Nordic UART Service (vendor specific). */
 
@@ -207,7 +207,7 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
  * @details This function takes a list of characters of length data_len and prints the characters out on UART.
  *          If @ref ECHOBACK_BLE_UART_DATA is set, the data is sent back to sender.
  */
-static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
+static void ble_nus_chars_received_uart_print_org(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
 {
     ret_code_t ret_val;
 
@@ -224,11 +224,15 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
     } while (ret_val == NRF_ERROR_BUSY);
   
     //扩增数列
-    uint8_t Data_long[256];
+    uint8_t Data_long[256 + 2*9];
     
-    if (data_len == 224) {
+    if (data_len >= 224) {
       decompress_data_224(p_data, Data_long);
-      data_len = 256;
+      // copy IMU data
+      for (int i = 224; i < data_len; i++) {
+        Data_long[i - 224 + 256] = p_data[i];
+      }
+      data_len = data_len - 224 + 256;
     } else {
       for (int i = 0; i < data_len; i++) {
         Data_long[i] = p_data[i];
@@ -249,6 +253,65 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
             }
         } while (ret_val == NRF_ERROR_BUSY);
       }
+    }
+}
+
+void put_byte(uint8_t data) {
+  ret_code_t ret_val;
+  do
+  {
+      ret_val = app_uart_put(data);
+      if ((ret_val != NRF_SUCCESS) && (ret_val != NRF_ERROR_BUSY))
+      {
+        NRF_LOG_ERROR("TX_put failed.");
+         // APP_ERROR_CHECK(ret_val);
+      }
+  } while (ret_val == NRF_ERROR_BUSY);
+}
+
+static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
+{
+    ret_code_t ret_val;
+
+    //扩增数列
+    uint8_t Data_long[256 + 9 * sizeof(int16_t)];
+    
+    if (data_len >= 224) {
+      decompress_data_224(p_data, Data_long);
+      // copy IMU data
+      for (int i = 224; i < data_len; i++) {
+        Data_long[i - 224 + 256] = p_data[i];
+      }
+      data_len = data_len - 224 + 256;
+    } else {
+      for (int i = 0; i < data_len; i++) {
+        Data_long[i] = p_data[i];
+      }
+    }
+
+    if(on_hvx_flag==0)
+    {
+      put_byte(0x5B);
+      for (uint32_t i = 0; i < data_len; i++)
+      {
+        switch(Data_long[i]) {
+          case 0x5B:
+            put_byte(0x5C);
+            put_byte(0x01);
+            break;
+          case 0x5C:
+            put_byte(0x5C);
+            put_byte(0x00);
+            break;
+          case 0x5D:
+            put_byte(0x5C);
+            put_byte(0x02);
+            break;
+          default:
+            put_byte(Data_long[i]);
+        }
+      }
+      put_byte(0x5D);
     }
 }
 
