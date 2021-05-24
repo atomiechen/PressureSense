@@ -1111,12 +1111,6 @@ int main(void)
     advertising_init();
     conn_params_init();
     
-    twi_master_init();
-    while(mpu6050_init() == false) {
-      // printf("mpu6050 init fail\r\n");
-      nrf_delay_ms(800);
-    }
-
     // Start execution.
     NRF_LOG_INFO("ADG725 example started.");
     advertising_start(false);
@@ -1136,6 +1130,9 @@ int main(void)
           //power_pin拉高，使能负载开关，给ADG725供电
           nrf_gpio_pin_set(power_pin);
           
+          nrf_delay_ms(2000);
+          mpu6050_twi_init();
+          
           //使能定时器、ppi及设置缓冲
           saadc_sampling_event_enable();
         }
@@ -1151,6 +1148,8 @@ int main(void)
           //取消spi初始化并将每个通信管脚拉低，否则MOSI会有时输出高电平
           ADG725_spi_uninit();
           ADG725_spi_clear();
+          
+          mpu6050_twi_uninit();
         }
         temp_connect=false;
       }

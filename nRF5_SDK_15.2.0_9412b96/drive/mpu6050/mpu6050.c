@@ -8,6 +8,8 @@
 #include "nrf_drv_twi.h"
 #include "mpu6050.h"
 
+// add by cwh
+#include "nrf_gpio.h"
 
 
 //TWI驱动程序实例ID,ID和外设编号对应，0:TWI0  1:TWI1
@@ -219,6 +221,23 @@ bool MPU6050_ReadAcc( int16_t *pACC_X , int16_t *pACC_Y , int16_t *pACC_Z )
 }
 
 
+// add by cwh
+
+void mpu6050_twi_init() {
+  twi_master_init();
+  while(mpu6050_init() == false) {
+    // printf("mpu6050 init fail\r\n");
+    nrf_delay_ms(800);
+  }
+}
+
+void mpu6050_twi_uninit() {
+  nrf_drv_twi_uninit(&m_twi);
+  nrf_drv_twi_disable(&m_twi);
+  
+  nrf_gpio_pin_clear(TWI_SCL_M);
+  nrf_gpio_pin_clear(TWI_SDA_M);
+}
 
 
 

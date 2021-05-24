@@ -102,6 +102,11 @@ bool mpu6050_verify_product_id(void);
 bool MPU6050_ReadGyro(int16_t *pGYRO_X , int16_t *pGYRO_Y , int16_t *pGYRO_Z );
 bool MPU6050_ReadAcc( int16_t *pACC_X , int16_t *pACC_Y , int16_t *pACC_Z );
 
+// add by cwh
+void mpu6050_twi_init();
+void mpu6050_twi_uninit();
+
+
 #endif
 
 
