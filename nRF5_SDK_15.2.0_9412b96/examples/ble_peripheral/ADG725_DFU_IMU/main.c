@@ -75,11 +75,16 @@
 // added by cwh
 #include "nrf_drv_ppi.h"
 
+//--------------Matrix sensor------------------
 #include "ADG725.h"
 #include "matrix_sensor.h"
+//--------------Matrix sensor------------------
+
+//-------------------LOG-----------------------
+#define NRF_LOG_USES_RTT 1
+//-------------------LOG-----------------------
 
 //-------------------IMU-----------------------
-// #include "app_mpu.h"
 #include "mpu6050.h"
 //-------------------IMU-----------------------
 
@@ -972,6 +977,8 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
         if(m_conn_handle == BLE_CONN_HANDLE_INVALID) {
             ADG725_spi_uninit();
             ADG725_spi_clear();
+            mpu6050_twi_uninit();
+            mpu6050_twi_clear();
             return;
         }
         
@@ -995,24 +1002,10 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
           int16_t AccValue[3], GyroValue[3];
           
           // 1. accelerometer
-          
           MPU6050_ReadAcc(&AccValue[0], &AccValue[1], &AccValue[2]);
-          
-          // accel_values_t acc_values;
-          // err_code = app_mpu_read_accel(&acc_values);
-          // APP_ERROR_CHECK(err_code);
           // 2. gyroscope
-          
           MPU6050_ReadGyro(&GyroValue[0], &GyroValue[1], &GyroValue[2]);
-          
-          // gyro_values_t gyro_values;
-          // err_code = app_mpu_read_gyro(&gyro_values);
-          // APP_ERROR_CHECK(err_code);
-          // // 3. magnetometer
-          // magn_values_t magn_values;
-          // err_code = app_mpu_read_magnetometer(&magn_values, NULL);
-          // APP_ERROR_CHECK(err_code);
-          // attach to data array
+          // attach IMU data to the data array
           int16_t* address = (int16_t*)&sch.data[sch.data_len];
           *(address++) = AccValue[0];
           *(address++) = AccValue[1];
@@ -1021,15 +1014,8 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
           *(address++) = GyroValue[1];
           *(address++) = GyroValue[2];
           
-          // *((accel_values_t*) address) = acc_values;
-          // address += sizeof(accel_values_t);
-          // *((gyro_values_t*) address) = gyro_values;
-          // address += sizeof(gyro_values_t);
-          // *((magn_values_t*) address) = magn_values;
-          
           // recalculate data length
           uint16_t data_len = sch.data_len + 6 * sizeof(int16_t);
-          // uint16_t data_len = sch.data_len + sizeof(accel_values_t) + sizeof(gyro_values_t);
           
           // send data
           ble_lbs_send_data(m_conn_handle, &m_lbs, sch.data, data_len);
@@ -1047,6 +1033,8 @@ void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
         if(m_conn_handle == BLE_CONN_HANDLE_INVALID) {
             ADG725_spi_uninit();
             ADG725_spi_clear();
+            mpu6050_twi_uninit();
+            mpu6050_twi_clear();
             return;
         }
     }
@@ -1098,6 +1086,8 @@ int main(void)
     ADG725_spi_clear();  
     //ADG725_spi_init();
 
+    mpu6050_twi_clear();
+
     // saadc_init();
     // // saadc_init_quick_sample();
     // // saadc_init_out();
@@ -1130,13 +1120,17 @@ int main(void)
           //power_pin拉高，使能负载开关，给ADG725供电
           nrf_gpio_pin_set(power_pin);
           
-          nrf_delay_ms(2000);
+          // 初始化TWI和MPU6050
           mpu6050_twi_init();
           
           //使能定时器、ppi及设置缓冲
           saadc_sampling_event_enable();
         }
         else{//蓝牙断开时的各个低功耗设置
+          
+          // 取消TWI和MPU6050初始化，并拉低通信引脚
+          mpu6050_twi_uninit();
+          mpu6050_twi_clear();
           
           //power_pin拉低，关闭负载开关
           nrf_gpio_pin_clear(power_pin);
@@ -1149,7 +1143,6 @@ int main(void)
           ADG725_spi_uninit();
           ADG725_spi_clear();
           
-          mpu6050_twi_uninit();
         }
         temp_connect=false;
       }

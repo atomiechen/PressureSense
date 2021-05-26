@@ -225,6 +225,8 @@ bool MPU6050_ReadAcc( int16_t *pACC_X , int16_t *pACC_Y , int16_t *pACC_Z )
 
 void mpu6050_twi_init() {
   twi_master_init();
+  // 上电服务前延时，否则数据可能会出错
+  nrf_delay_ms(2000);
   while(mpu6050_init() == false) {
     // printf("mpu6050 init fail\r\n");
     nrf_delay_ms(800);
@@ -232,12 +234,12 @@ void mpu6050_twi_init() {
 }
 
 void mpu6050_twi_uninit() {
-  nrf_drv_twi_uninit(&m_twi);
   nrf_drv_twi_disable(&m_twi);
-  
+  nrf_drv_twi_uninit(&m_twi);
+}
+
+void mpu6050_twi_clear() {
   nrf_gpio_pin_clear(TWI_SCL_M);
   nrf_gpio_pin_clear(TWI_SDA_M);
 }
-
-
 

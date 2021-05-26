@@ -105,7 +105,7 @@ bool MPU6050_ReadAcc( int16_t *pACC_X , int16_t *pACC_Y , int16_t *pACC_Z );
 // add by cwh
 void mpu6050_twi_init();
 void mpu6050_twi_uninit();
-
+void mpu6050_twi_clear();
 
 #endif
 
