@@ -3,5 +3,13 @@ JLinkLog.txt
 *.uvguix.*
 Listings/
 Objects/
+
 *.hex
+DFU_key/*.hex
+!DFU_key/boot.hex
+!DFU_key/s132_nrf52_6.1.0_softdevice.hex
+DFU_key_IMU/*.hex
+!DFU_key_IMU/boot.hex
+!DFU_key_IMU/s132_nrf52_6.1.0_softdevice.hex
+
 *.zip
