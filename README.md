@@ -53,3 +53,17 @@ Keil uvision5
 - `app_setting.hex`：自动运行application而非停在bootloader模式的设置文件
 - `merged.hex`：将协议栈、bootloader、application和设置文件合并的HEX文件，可一步烧写到位，不必多次烧写
 
+
+
+## 从机选择控制器
+
+PC端通过串口向主机发送控制命令，以连接所要求的从机
+
+`select.py`：命令行界面
+
+- 1：refresh：获取当前主机正在搜索的从机名
+- 2：update：向主机发送所需要搜索的从机名
+- 0：退出程序
+
+`select_device.py`：GUI界面，界面按键含义同上
+
