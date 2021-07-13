@@ -164,7 +164,7 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
 
 /**@brief Function for initializing the scanning and setting the filters.
  */
-static char const *m_target_periph_name = "XXXX2";             /**< Name of the device we try to connect to. This name is searched for in the scan report data*/
+static char const *m_target_periph_name = "PresenabX";             /**< Name of the device we try to connect to. This name is searched for in the scan report data*/
 
 static void scan_init(void)
 {
@@ -316,6 +316,9 @@ void uart_event_handle(app_uart_evt_t * p_event)
 							 }
 							 m_target_periph_name = string;
 							 
+							 //重新设置扫描筛选条件
+							 scan_init();
+							 
 							 //断开连接
 							 ret_code_t err_code;
 							 if(m_ble_nus_c.conn_handle!=BLE_CONN_HANDLE_INVALID)
@@ -323,6 +326,7 @@ void uart_event_handle(app_uart_evt_t * p_event)
 								 err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
 								 APP_ERROR_CHECK(err_code);
 								}
+								
 			
 							 index = 0;
             }						
