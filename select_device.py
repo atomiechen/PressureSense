@@ -36,9 +36,8 @@ def enumerate_ports():
     for item in devices_found:
         print(item)
 
-def serial_xx(gui, mSerial):
+def serial_xx(gui):
     global data_bytes
-    print(f"mSerial: {mSerial}")
     while True:
         count = mSerial.inWaiting()
         if count:
@@ -62,17 +61,16 @@ def serial_xx(gui, mSerial):
 
 class MainWidget(QtWidgets.QMainWindow):
 
-    # @staticmethod
-    def action_refresh(self):
-        self.mSerial.write(("RR").encode())
+    @staticmethod
+    def action_refresh():
+        mSerial.write(("RR").encode())
 
     def action_update(self):
         data_send_update = self.acupoint_name_select.text()
         print("data_send_update值为：" + data_send_update)
-        self.mSerial.write((data_send_update + "UU").encode())
+        mSerial.write((data_send_update + "UU").encode())
 
-    def __init__(self, mSerial):
-        self.mSerial = mSerial
+    def __init__(self):
         super().__init__()
         self.setWindowTitle("Select Device")  # 设置窗口标题
         self.main_widget = QtWidgets.QWidget()  # 实例化一个widget部件
@@ -103,28 +101,6 @@ class MainWidget(QtWidgets.QMainWindow):
 
         self.setCentralWidget(self.main_widget)  # 设置窗口默认部件为主widget
 
-
-def main(args):
-    if args.enumerate:
-        enumerate_ports()
-        return
-
-    app = QtWidgets.QApplication(sys.argv)
-    mSerial = serial.Serial(args.port, args.baudrate, timeout=0.1)
-    if mSerial.isOpen():
-        print("open success")
-        mSerial.flushInput()  # 清空缓冲区
-
-    else:
-        print("open failed")
-        mSerial.close()  # 关闭端口
-    gui = MainWidget(mSerial)
-    th1 = threading.Thread(target=serial_xx, args=(gui,mSerial))
-    th1.start()
-    gui.show()
-    sys.exit(app.exec_())
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-e', dest='enumerate', action=('store_true'), default=False, help="enumerate all serial ports")
@@ -132,4 +108,20 @@ if __name__ == "__main__":
     parser.add_argument('-b', dest='baudrate', action=('store'), default=BAUDRATE, type=int, help="specify baudrate")
     args = parser.parse_args()
 
-    main(args)
+    if args.enumerate:
+        enumerate_ports()
+    else:
+        app = QtWidgets.QApplication(sys.argv)
+        mSerial = serial.Serial('COM5', 1000000)
+        if mSerial.isOpen():
+            print("open success")
+            mSerial.flushInput()  # 清空缓冲区
+
+        else:
+            print("open failed")
+            mSerial.close()  # 关闭端口
+        gui = MainWidget()
+        th1 = threading.Thread(target=serial_xx, args=(gui,))
+        th1.start()
+        gui.show()
+        sys.exit(app.exec_())
