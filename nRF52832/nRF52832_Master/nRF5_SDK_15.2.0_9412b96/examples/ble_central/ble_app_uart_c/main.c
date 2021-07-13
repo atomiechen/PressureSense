@@ -164,6 +164,8 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
 
 /**@brief Function for initializing the scanning and setting the filters.
  */
+static char const *m_target_periph_name = "XXXX2";             /**< Name of the device we try to connect to. This name is searched for in the scan report data*/
+
 static void scan_init(void)
 {
     ret_code_t          err_code;
@@ -181,6 +183,13 @@ static void scan_init(void)
     APP_ERROR_CHECK(err_code);
 
     err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_UUID_FILTER, false);
+    APP_ERROR_CHECK(err_code);
+		
+	  //设筛选广播name
+    err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_NAME_FILTER, m_target_periph_name);
+    APP_ERROR_CHECK(err_code);
+
+    err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_NAME_FILTER, false);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -257,6 +266,7 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
  *          a string. The string is sent over BLE when the last character received is a
  *          'new line' '\n' (hex 0x0A) or if the string reaches the maximum data length.
  */
+char string[20] = "Presenab99";
 void uart_event_handle(app_uart_evt_t * p_event)
 {
     static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
@@ -269,23 +279,54 @@ void uart_event_handle(app_uart_evt_t * p_event)
         case APP_UART_DATA_READY:
             UNUSED_VARIABLE(app_uart_get(&data_array[index]));
             index++;
-
-            if ((data_array[index - 1] == '\n') || (index >= (m_ble_nus_max_data_len)))
+						//接收到上位机的“Refresh”指令
+						if (data_array[index - 1] == 'R' && (index > 1) && data_array[index - 2] == 'R')
             {
-                NRF_LOG_DEBUG("Ready to send data over BLE NUS");
-                NRF_LOG_HEXDUMP_DEBUG(data_array, index);
-
-                do
-                {
-                    ret_val = ble_nus_c_string_send(&m_ble_nus_c, data_array, index);
-                    if ( (ret_val != NRF_ERROR_INVALID_STATE) && (ret_val != NRF_ERROR_RESOURCES) )
-                    {
-                        APP_ERROR_CHECK(ret_val);
-                    }
-                } while (ret_val == NRF_ERROR_RESOURCES);
-
-                index = 0;
+							//传给上位机共14个字节
+							
+							app_uart_put(0xEE);
+							app_uart_put(0x88);
+							//一般为9个字节
+							for (int i=0;i<strlen(m_target_periph_name);i++)
+								app_uart_put(m_target_periph_name[i]);
+							//不足的用EE补齐
+							for(int i = strlen(m_target_periph_name); i < 10; i++)
+								app_uart_put(0xEE);
+							app_uart_put(0xEE);
+							app_uart_put(0x77);
+							index = 0;
             }
+            //接收到上位机的“Update”指令						
+            if (data_array[index - 1] == 'U' && (index > 10) && data_array[index - 2] == 'U')
+            {
+							 int new_name = 0;
+							 if(data_array[0] == 'P' && data_array[6] == 'a' && data_array[7] == 'b'){
+							     new_name = data_array[8] - 0x30;
+							 }
+							 if(data_array[9] <= '9' && data_array[9] >= '0'){
+								   new_name = new_name*10+(data_array[9]-0x30);
+								   char a = (int)(new_name / 10) + 0x30;
+									 char bb = new_name % 10 + 0x30;
+									 string[8] = a;
+									 string[9] = bb;								 
+							 }else{
+								   char a = new_name + 0x30;
+									 string[8] = a;
+									 string[9] = 0;
+							 }
+							 m_target_periph_name = string;
+							 
+							 //断开连接
+							 ret_code_t err_code;
+							 if(m_ble_nus_c.conn_handle!=BLE_CONN_HANDLE_INVALID)
+								{
+								 err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+								 APP_ERROR_CHECK(err_code);
+								}
+			
+							 index = 0;
+            }						
+						
             break;
 
         /**@snippet [Handling data from UART] */

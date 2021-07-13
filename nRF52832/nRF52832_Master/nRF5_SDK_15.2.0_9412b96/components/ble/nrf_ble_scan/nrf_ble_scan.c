@@ -852,6 +852,7 @@ ret_code_t nrf_ble_scan_filter_get(nrf_ble_scan_t * const   p_scan_ctx,
  * @param[in] p_scan_ctx    Pointer to the Scanning Module instance.
  * @param[in] p_adv_report  Advertising report.
  */
+static char const *m_target_periph_name = "X1";
 static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_scan_ctx,
                                        ble_gap_evt_adv_report_t const * const p_adv_report)
 {
@@ -874,7 +875,7 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
         p_scan_ctx->evt_handler(&scan_evt);
 
         UNUSED_RETURN_VALUE(sd_ble_gap_scan_start(NULL, &p_scan_ctx->scan_buffer));
-        nrf_ble_scan_connect_with_target(p_scan_ctx, p_adv_report);
+				nrf_ble_scan_connect_with_target(p_scan_ctx, p_adv_report);
 
         return;
     }
@@ -967,6 +968,7 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
             is_filter_matched = true;
         }
     }
+
 #endif
 
 #if (NRF_BLE_SCAN_APPEARANCE_CNT > 0)
@@ -997,7 +999,7 @@ static void nrf_ble_scan_on_adv_report(nrf_ble_scan_t           const * const p_
     // In the normal filter mode, only one filter match is needed to generate the notification to the main application.
     else if ((!all_filter_mode) && is_filter_matched)
     {
-        scan_evt.scan_evt_id = NRF_BLE_SCAN_EVT_FILTER_MATCH;
+        scan_evt.scan_evt_id = NRF_BLE_SCAN_EVT_FILTER_MATCH;	
         nrf_ble_scan_connect_with_target(p_scan_ctx, p_adv_report);
     }
     else
