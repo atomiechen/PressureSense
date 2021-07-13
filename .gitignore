@@ -13,3 +13,5 @@ DFU_key_IMU/*.hex
 !DFU_key_IMU/s132_nrf52_6.1.0_softdevice.hex
 
 *.zip
+
+__pycache__
