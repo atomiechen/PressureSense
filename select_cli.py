@@ -100,23 +100,26 @@ class BLEController:
 	def interactive_cli(self):
 		while True:
 			cmd = input(">> ")
-			paras = cmd.strip().split()
-			cmd_type = int(paras[0])
-			if cmd_type == 1:
-				## refresh
-				self.refresh()
-			elif cmd_type == 2:
-				## update
-				try:
-					data_send_update = paras[1]
-				except:
-					data_send_update = self.PREFIX + str(self.cur_idx)
-					self.udpate_idx()
-				self.update(data_send_update)
-			elif cmd_type == 0:
-				## quit
-				print("quit BLE controller.")
-				return
+			try:
+				paras = cmd.strip().split()
+				cmd_type = int(paras[0])
+				if cmd_type == 1:
+					## refresh
+					self.refresh()
+				elif cmd_type == 2:
+					## update
+					try:
+						data_send_update = paras[1]
+					except:
+						data_send_update = self.PREFIX + str(self.cur_idx)
+						self.udpate_idx()
+					self.update(data_send_update)
+				elif cmd_type == 0:
+					## quit
+					print("quit BLE controller.")
+					return
+			except:
+				pass
 
 
 def main(args):
