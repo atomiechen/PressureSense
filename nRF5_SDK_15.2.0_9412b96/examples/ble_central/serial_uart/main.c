@@ -215,7 +215,7 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
  * @details This function takes a list of characters of length data_len and prints the characters out on UART.
  *          If @ref ECHOBACK_BLE_UART_DATA is set, the data is sent back to sender.
  */
-static void ble_nus_chars_received_uart_print_org(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
+static void ble_nus_chars_received_uart_print_simple(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
 {
     ret_code_t ret_val;
 
@@ -277,7 +277,7 @@ void put_byte(uint8_t data) {
   } while (ret_val == NRF_ERROR_BUSY);
 }
 
-static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
+static void ble_nus_chars_received_uart_print_secure(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
 {
     ret_code_t ret_val;
 
@@ -411,6 +411,8 @@ void uart_event_handle(app_uart_evt_t * p_event)
     }
 }
 
+// int protocol = 0;  // simple
+int protocol = 1;  // secure
 
 /**@brief Callback handling Nordic UART Service (NUS) client events.
  *
@@ -442,7 +444,12 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
-            ble_nus_chars_received_uart_print(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len,p_ble_nus_evt->on_hvx_flag);
+						if (protocol == 0) {
+							ble_nus_chars_received_uart_print_simple(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len,p_ble_nus_evt->on_hvx_flag);
+						} else if (protocol == 1) {
+							ble_nus_chars_received_uart_print_secure(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len,p_ble_nus_evt->on_hvx_flag);
+						}
+            
  /*       for (uint32_t i = 0; i <  p_ble_nus_evt->data_len; i++)
     {
         while (app_uart_put(p_ble_nus_evt->p_data[i]) !=NRF_SUCCESS);
