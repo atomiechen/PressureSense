@@ -57,6 +57,7 @@ class BLEController:
 		print(self.my_serial)
 
 		self.cur_idx = 0
+		self.protocol = 1  ## 0 for simple, 1 for secure
 
 	def __del__(self):
 		self.close()
@@ -97,13 +98,37 @@ class BLEController:
 		if self.cur_idx == self.TOTAL:
 			self.cur_idx = 0
 
+	def enable_name_filter(self):
+		self.my_serial.write(("EE").encode())
+		print("打开名字筛选 Enable name filter")
+
+	def disable_name_filter(self):
+		self.my_serial.write(("DD").encode())
+		print("关闭名字筛选 Disable name filter")
+
+	def reconnect(self):
+		self.my_serial.write(("XX").encode())
+		print("断开连接重新扫描连接 Reconnect")
+
+	def protocol_simple(self):
+		self.my_serial.write(("P0").encode())
+		print("使用Simple protocol")
+
+	def protocol_secure(self):
+		self.my_serial.write(("P1").encode())
+		print("使用Secure protocol")
+
 	def interactive_cli(self):
 		while True:
 			cmd = input(">> ")
 			try:
 				paras = cmd.strip().split()
 				cmd_type = int(paras[0])
-				if cmd_type == 1:
+				if cmd_type == 0:
+					## quit
+					print("quit BLE controller.")
+					return
+				elif cmd_type == 1:
 					## refresh
 					self.refresh()
 				elif cmd_type == 2:
@@ -114,12 +139,32 @@ class BLEController:
 						data_send_update = self.PREFIX + str(self.cur_idx)
 						self.udpate_idx()
 					self.update(data_send_update)
-				elif cmd_type == 0:
-					## quit
-					print("quit BLE controller.")
-					return
-			except:
-				pass
+				elif cmd_type == 3:
+					## enable name filter
+					self.enable_name_filter()
+				elif cmd_type == 4:
+					## disable name filter
+					self.disable_name_filter()
+				elif cmd_type == 5:
+					## reconnect
+					self.reconnect()
+				elif cmd_type == 6:
+					## switch protocol
+					try:
+						protocol = paras[1]
+						if protocol == "simple":
+							self.protocol = 0
+						elif protocol == "secure":
+							self.protocol = 1
+					except Exception as e:
+						# print(e)
+						self.protocol = 1 - self.protocol
+					if self.protocol == 0:
+						self.protocol_simple()
+					elif self.protocol == 1:
+						self.protocol_secure()
+			except Exception as e:
+				print(e)
 
 
 def main(args):

@@ -165,6 +165,8 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
 }
 
 static char const *m_target_periph_name = "PresenabX";             /**< Name of the device we try to connect to. This name is searched for in the scan report data*/
+bool name_filter = false;  // enable name filter or not
+int protocol = 1;  // 0 for simple, 1 for secure
 
 /**@brief Function for initializing the scanning and setting the filters.
  */
@@ -187,12 +189,15 @@ static void scan_init(void)
     err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_UUID_FILTER, false);
     APP_ERROR_CHECK(err_code);
 
-    //设筛选广播name
-    err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_NAME_FILTER, m_target_periph_name);
-    APP_ERROR_CHECK(err_code);
+    if (name_filter) {
+      //设筛选广播name
+      err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_NAME_FILTER, m_target_periph_name);
+      APP_ERROR_CHECK(err_code);
 
-    err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_NAME_FILTER, false);
-    APP_ERROR_CHECK(err_code);
+      // 开启name filter
+      err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_NAME_FILTER, false);
+      APP_ERROR_CHECK(err_code);
+    }
 }
 
 
@@ -323,6 +328,15 @@ static void ble_nus_chars_received_uart_print_secure(uint8_t * p_data, uint16_t 
     }
 }
 
+void disconnect() {
+  //断开连接
+  ret_code_t err_code;
+  if(m_ble_nus_c.conn_handle!=BLE_CONN_HANDLE_INVALID)
+  {
+      err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+      APP_ERROR_CHECK(err_code);
+  }
+}
 
 /**@brief   Function for handling app_uart events.
  *
@@ -346,19 +360,31 @@ void uart_event_handle(app_uart_evt_t * p_event)
             //接收到上位机的“Refresh”指令
             if (data_array[index - 1] == 'R' && (index > 1) && data_array[index - 2] == 'R')
             {
-                //传给上位机共14个字节
-                app_uart_put(0xEE);
-                app_uart_put(0x88);
+              //传给上位机共14个字节
+              // 头2个字节
+              app_uart_put(0xEE);
+              app_uart_put(0x88);
+              // 中间10个字节
+              if (name_filter) {
                 //一般为9个字节
                 for (int i=0;i<strlen(m_target_periph_name);i++)
                     app_uart_put(m_target_periph_name[i]);
                 //不足的用EE补齐
                 for(int i = strlen(m_target_periph_name); i < 10; i++)
                     app_uart_put(0xEE);
-                app_uart_put(0xEE);
-                app_uart_put(0x77);
-                index = 0;
+              } else {
+                for (int i = 0; i < 10; i++) {
+                  app_uart_put('\0');
+                }
+              }
+              // 尾2个字节
+              app_uart_put(0xEE);
+              app_uart_put(0x77);
+
+              // 将数组长度index重置为0
+              index = 0;
             }
+            
             //接收到上位机的“Update”指令
             if (data_array[index - 1] == 'U' && (index > 10) && data_array[index - 2] == 'U')
             {
@@ -379,10 +405,10 @@ void uart_event_handle(app_uart_evt_t * p_event)
                 }
                 m_target_periph_name = string;
                 
-                //重新设置扫描筛选条件
+                // 重新设置扫描筛选条件
                 scan_init();
 
-                //断开连接
+                // 断开连接重新扫描
                 ret_code_t err_code;
                 if(m_ble_nus_c.conn_handle!=BLE_CONN_HANDLE_INVALID)
                 {
@@ -390,9 +416,57 @@ void uart_event_handle(app_uart_evt_t * p_event)
                     APP_ERROR_CHECK(err_code);
                 }
 
+                // 将数组长度index重置为0
                 index = 0;
             }
+            
+            // 接收到上位机开启名称筛选的命令EE
+            if (data_array[index - 1] == 'E' && (index > 1) && data_array[index - 2] == 'E') {
+              if (!name_filter) {
+                name_filter = true;
+                // 重新设置扫描筛选条件
+                scan_init();
+                // 断开连接重新扫描
+                disconnect();
+              }
+              // 将数组长度index重置为0
+              index = 0;
+            }
+            
+            // 接收到上位机关闭名称筛选的命令DD
+            if (data_array[index - 1] == 'D' && (index > 1) && data_array[index - 2] == 'D') {
+              if (name_filter) {
+                name_filter = false;
+                // 重新设置扫描筛选条件
+                scan_init();
+                // 断开连接重新扫描
+                disconnect();
+              }
+              // 将数组长度index重置为0
+              index = 0;
+            }
+            
+            // 接收到上位机断开连接重新扫描的命令XX
+            if (data_array[index - 1] == 'X' && (index > 1) && data_array[index - 2] == 'X') {
+              disconnect();
+              
+              // 将数组长度index重置为0
+              index = 0;
+            }
 
+            // 接收到上位机切换protocol命令XX
+            if ((index > 1) && data_array[index - 2] == 'P') {
+              if (data_array[index - 1] == '0') {
+                // simple
+                protocol = 0;
+              } else if (data_array[index - 1] == '1') {
+                // secure
+                protocol = 1;
+              }
+              // 将数组长度index重置为0
+              index = 0;
+            }
+            
             break;
 
         /**@snippet [Handling data from UART] */
@@ -410,9 +484,6 @@ void uart_event_handle(app_uart_evt_t * p_event)
             break;
     }
 }
-
-// int protocol = 0;  // simple
-int protocol = 1;  // secure
 
 /**@brief Callback handling Nordic UART Service (NUS) client events.
  *
