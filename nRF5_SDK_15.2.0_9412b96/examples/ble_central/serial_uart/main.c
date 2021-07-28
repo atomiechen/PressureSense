@@ -338,17 +338,52 @@ void disconnect() {
   }
 }
 
+const uint8_t HEAD = 0xEB;
+const uint8_t TAIL = 0xED;
+const uint8_t ESCAPE = 0xEC;
+const uint8_t ESCAPE_ESCAPE = 0x00;
+const uint8_t ESCAPE_HEAD = 0x01;
+const uint8_t ESCAPE_TAIL = 0x02;
+
+void send_frame(const uint8_t * data, uint16_t data_len) {
+  put_byte(HEAD);
+  for (uint32_t i = 0; i < data_len; i++)
+  {
+    switch(data[i]) {
+      case HEAD:
+        put_byte(ESCAPE);
+        put_byte(ESCAPE_HEAD);
+        break;
+      case ESCAPE:
+        put_byte(ESCAPE);
+        put_byte(ESCAPE_ESCAPE);
+        break;
+      case TAIL:
+        put_byte(ESCAPE);
+        put_byte(ESCAPE_TAIL);
+        break;
+      default:
+        put_byte(data[i]);
+    }
+  }
+  put_byte(TAIL);
+}
+
 /**@brief   Function for handling app_uart events.
  *
  * @details This function receives a single character from the app_uart module and appends it to
  *          a string. The string is sent over BLE when the last character received is a
  *          'new line' '\n' (hex 0x0A) or if the string reaches the maximum data length.
  */
-char string[20] = "Presenab99";
+char string[170] = "Presenab99";
 void uart_event_handle(app_uart_evt_t * p_event)
 {
     static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
     static uint16_t index = 0;
+    static bool begin = false;
+    static uint8_t frame[BLE_NUS_MAX_DATA_LEN];
+    static uint16_t len = 0;
+    static bool escape = false;
     uint32_t ret_val;
 
     switch (p_event->evt_type)
@@ -357,6 +392,98 @@ void uart_event_handle(app_uart_evt_t * p_event)
         case APP_UART_DATA_READY:
             UNUSED_VARIABLE(app_uart_get(&data_array[index]));
             index++;
+
+            // parse frame
+            bool finish = false;
+            if (begin) {
+              if (escape) {
+                switch (data_array[index-1]) {
+                  case ESCAPE_ESCAPE:
+                    frame[len++] = ESCAPE;
+                    break;
+                  case ESCAPE_HEAD:
+                    frame[len++] = HEAD;
+                    break;
+                  case ESCAPE_TAIL:
+                    frame[len++] = TAIL;
+                    break;
+                }
+                escape = false;
+              } else {
+                switch (data_array[index-1]) {
+                  case ESCAPE:
+                    escape = true;
+                    break;
+                  case TAIL:
+                    begin = false;
+                    finish = true;
+                    index = 0;
+                    break;
+                  default:
+                    frame[len++] = data_array[index-1];
+                }
+              }
+            } else if (data_array[index-1] == HEAD) {
+              begin = true;
+            }
+
+            if (!finish)
+              break;
+
+            // dispatch command
+            switch (frame[0]) {
+              case 0:
+                // reconnect
+                disconnect();
+                break;
+              case 1:
+                // get name
+                send_frame(m_target_periph_name, strlen(m_target_periph_name));
+                break;
+              case 2:
+                // connect to specified name
+                frame[len++] = '\0';
+                for (int i = 1; i < len; i++)
+                  string[i-1] = frame[i];
+                m_target_periph_name = string;
+                name_filter = true;
+                scan_init();
+                disconnect();
+                break;
+              case 3:
+                // enable/disable name filter
+                switch (frame[1]) {
+                  case 0:
+                    // disable
+                    if (name_filter) {
+                      name_filter = false;
+                      scan_init();
+                      disconnect();
+                    }
+                    break;
+                  case 1:
+                    // enable
+                    if (!name_filter) {
+                      name_filter = true;
+                      scan_init();
+                      disconnect();
+                    }
+                    break;
+                }
+                break;
+              case 4:
+                // switch protocol
+                protocol = frame[1];
+                break;
+            }
+            
+            len = 0;
+            break;
+        
+        
+        
+        
+        
             //接收到上位机的“Refresh”指令
             if (data_array[index - 1] == 'R' && (index > 1) && data_array[index - 2] == 'R')
             {

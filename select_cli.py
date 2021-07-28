@@ -1,4 +1,5 @@
 import argparse
+from enum import IntEnum
 
 from serial import Serial
 from serial.tools.list_ports import comports
@@ -45,10 +46,31 @@ def serial_xx(gui, mSerial):
 			data_bytes[0:k] = b''
 
 
+class BLE_CMD(IntEnum):
+	RECONNECT = 0
+	NAME = 1
+	CONNECT = 2
+	NAMEFILTER = 3
+	PROTOCOL = 4
+
+
+class BLE_PROTOCOL(IntEnum):
+	SIMPLE = 0
+	SECURE = 1
+
+
 class BLEController:
 
 	PREFIX = "Presenab"
 	TOTAL = 2
+
+	## protocol
+	HEAD = 0xEB
+	TAIL = 0xED
+	ESCAPE = 0xEC
+	ESCAPE_ESCAPE = 0x00
+	ESCAPE_HEAD = 0x01
+	ESCAPE_TAIL = 0x02
 
 	def __init__(self, port, baudrate, timeout=None):
 		self.isOpen = False
@@ -57,7 +79,9 @@ class BLEController:
 		print(self.my_serial)
 
 		self.cur_idx = 0
-		self.protocol = 1  ## 0 for simple, 1 for secure
+		# self.protocol = 1  ## 0 for simple, 1 for secure
+		self.protocol = BLE_PROTOCOL.SECURE
+		self.namefilter = 0
 
 	def __del__(self):
 		self.close()
@@ -67,104 +91,127 @@ class BLEController:
 			self.my_serial.close()
 			print("Serial port closed.")
 
-	def refresh(self):
-		self.my_serial.write(("RR").encode())
-
-		data_bytes = bytearray()
-		while True:
-			recv = self.my_serial.read()
-			data_bytes += recv
-			data_len = len(data_bytes)
-			k = 0
-			while k + 14 <= data_len:
-				# 收到主机目前正在搜索的蓝牙名称
-				if data_bytes[k] == 0XEE and data_bytes[k + 1] == 0X88 and data_bytes[k + 12] == 0XEE and data_bytes[k + 13] == 0X77:
-					name_buffer = ""
-					for k5 in range(10):
-						if data_bytes[k + 2 + k5] != 0xEE:
-							name_buffer = name_buffer + chr(data_bytes[k + 2 + k5])
-					print(f"Target: {name_buffer}")
-					k = k + 14
-					return
-				else:
-					k = k + 1
-
-	def update(self, data_send_update):
-		print("data_send_update值为：" + data_send_update)
-		self.my_serial.write((data_send_update + "UU").encode())
-
 	def udpate_idx(self):
 		self.cur_idx += 1
 		if self.cur_idx == self.TOTAL:
 			self.cur_idx = 0
 
-	def enable_name_filter(self):
-		self.my_serial.write(("EE").encode())
-		print("打开名字筛选 Enable name filter")
+	def send_frame(self, content):
+		frame = bytearray()
+		frame.append(self.HEAD)
+		try:
+			## 是一个字节/数字的数组
+			for ch in content:
+				if ch == self.HEAD:
+					frame.append(self.ESCAPE)
+					frame.append(self.ESCAPE_HEAD)
+				elif ch == self.TAIL:
+					frame.append(self.ESCAPE)
+					frame.append(self.ESCAPE_TAIL)
+				elif ch == self.ESCAPE:
+					frame.append(self.ESCAPE)
+					frame.append(self.ESCAPE_ESCAPE)
+				else:
+					frame.append(ch)
+		except:
+			## 是一个数字
+			frame.append(content)
+		frame.append(self.TAIL)
+		self.my_serial.write(frame)
 
-	def disable_name_filter(self):
-		self.my_serial.write(("DD").encode())
-		print("关闭名字筛选 Disable name filter")
+	def read_byte(self):
+		recv = self.my_serial.read()
+		if len(recv) != 1:
+			raise Exception("Serial timeout!!!")
+		return recv[0]
 
-	def reconnect(self):
-		self.my_serial.write(("XX").encode())
-		print("断开连接重新扫描连接 Reconnect")
+	def recv_frame(self):
+		frame = bytearray()
+		begin = False
+		while True:
+			recv = self.read_byte()
+			if begin:
+				if recv == self.ESCAPE:
+					## escape bytes
+					recv = self.read_byte()
+					if recv == self.ESCAPE_ESCAPE:
+						frame.append(self.ESCAPE)
+					elif recv == self.ESCAPE_HEAD:
+						frame.append(self.HEAD)
+					elif recv == self.ESCAPE_TAIL:
+						frame.append(self.TAIL)
+					else:
+						print(f"Wrong ESCAPE byte: {recv}")
+				elif recv == self.TAIL:
+					## end a frame
+					break
+				else:
+					frame.append(recv)
+			elif recv == self.HEAD:
+				## begin a frame
+				begin = True
 
-	def protocol_simple(self):
-		self.my_serial.write(("P0").encode())
-		print("使用Simple protocol")
-
-	def protocol_secure(self):
-		self.my_serial.write(("P1").encode())
-		print("使用Secure protocol")
+		return frame
 
 	def interactive_cli(self):
 		while True:
-			cmd = input(">> ")
+			cmd = input(">> ").strip()
+			## exit the command line interface
+			if cmd and "quit".startswith(cmd) or cmd == "exit":
+				break
+
 			try:
-				paras = cmd.strip().split()
-				cmd_type = int(paras[0])
-				if cmd_type == 0:
-					## quit
-					print("quit BLE controller.")
-					return
-				elif cmd_type == 1:
-					## refresh
-					self.refresh()
-				elif cmd_type == 2:
-					## update
-					try:
-						data_send_update = paras[1]
-					except:
-						data_send_update = self.PREFIX + str(self.cur_idx)
-						self.udpate_idx()
-					self.update(data_send_update)
-				elif cmd_type == 3:
-					## enable name filter
-					self.enable_name_filter()
-				elif cmd_type == 4:
-					## disable name filter
-					self.disable_name_filter()
-				elif cmd_type == 5:
+				paras = cmd.split()
+				try:
+					cmd_type = BLE_CMD(int(paras[0]))
+				except Exception:
+					cmd_type = BLE_CMD[paras[0].upper()]
+
+				if cmd_type == BLE_CMD.RECONNECT:
 					## reconnect
-					self.reconnect()
-				elif cmd_type == 6:
+					self.send_frame(BLE_CMD.RECONNECT)
+					print("Reconnect")
+				elif cmd_type == BLE_CMD.NAME:
+					## get name
+					self.send_frame(BLE_CMD.NAME)
+					try:
+						data = self.recv_frame()
+						name = data.decode()
+						print(f"Current target: {name}")
+					except KeyboardInterrupt:
+						pass
+				elif cmd_type == BLE_CMD.CONNECT:
+					## connect using specified name
+					try:
+						name = paras[1]
+					except Exception:
+						name = self.PREFIX + str(self.cur_idx)
+						self.udpate_idx()
+					self.send_frame(bytes([BLE_CMD.CONNECT])+name.encode())
+					print(f"Connecting to: {name}")
+				elif cmd_type == BLE_CMD.NAMEFILTER:
+					## enable/disable name filter
+					try:
+						if paras[1] == 'enable':
+							self.namefilter = 1
+						elif paras[1] == 'disable':
+							self.namefilter = 0
+					except Exception:
+						self.namefilter = 1 - self.namefilter
+					self.send_frame([BLE_CMD.NAMEFILTER, self.namefilter])
+					print(f"{'Enable' if self.namefilter==1 else 'Disable'} name filter")
+				elif cmd_type == BLE_CMD.PROTOCOL:
 					## switch protocol
 					try:
-						protocol = paras[1]
-						if protocol == "simple":
-							self.protocol = 0
-						elif protocol == "secure":
-							self.protocol = 1
-					except Exception as e:
-						# print(e)
-						self.protocol = 1 - self.protocol
-					if self.protocol == 0:
-						self.protocol_simple()
-					elif self.protocol == 1:
-						self.protocol_secure()
+						self.protocol = BLE_PROTOCOL[paras[1].upper()]
+					except Exception:
+						self.protocol = BLE_PROTOCOL(1 - self.protocol)
+					self.send_frame([BLE_CMD.PROTOCOL, self.protocol.value])
+					print(f"Switch protocol to {self.protocol.name}")
+
 			except Exception as e:
-				print(e)
+				# print(f"get exception: {e}")
+				pass
 
 
 def main(args):
