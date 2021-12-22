@@ -165,6 +165,8 @@ static void scan_evt_handler(scan_evt_t const * p_scan_evt)
 }
 
 static char const *m_target_periph_name = "PresenabX";             /**< Name of the device we try to connect to. This name is searched for in the scan report data*/
+bool name_filter = false;  // enable name filter or not
+int protocol = 1;  // 0 for simple, 1 for secure
 
 /**@brief Function for initializing the scanning and setting the filters.
  */
@@ -187,12 +189,15 @@ static void scan_init(void)
     err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_UUID_FILTER, false);
     APP_ERROR_CHECK(err_code);
 
-    //设筛选广播name
-    err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_NAME_FILTER, m_target_periph_name);
-    APP_ERROR_CHECK(err_code);
+    if (name_filter) {
+      //设筛选广播name
+      err_code = nrf_ble_scan_filter_set(&m_scan, SCAN_NAME_FILTER, m_target_periph_name);
+      APP_ERROR_CHECK(err_code);
 
-    err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_NAME_FILTER, false);
-    APP_ERROR_CHECK(err_code);
+      // 开启name filter
+      err_code = nrf_ble_scan_filters_enable(&m_scan, NRF_BLE_SCAN_NAME_FILTER, false);
+      APP_ERROR_CHECK(err_code);
+    }
 }
 
 
@@ -215,7 +220,7 @@ static void db_disc_handler(ble_db_discovery_evt_t * p_evt)
  * @details This function takes a list of characters of length data_len and prints the characters out on UART.
  *          If @ref ECHOBACK_BLE_UART_DATA is set, the data is sent back to sender.
  */
-static void ble_nus_chars_received_uart_print_org(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
+static void ble_nus_chars_received_uart_print_simple(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
 {
     ret_code_t ret_val;
 
@@ -277,7 +282,7 @@ void put_byte(uint8_t data) {
   } while (ret_val == NRF_ERROR_BUSY);
 }
 
-static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
+static void ble_nus_chars_received_uart_print_secure(uint8_t * p_data, uint16_t data_len,bool on_hvx_flag )
 {
     ret_code_t ret_val;
 
@@ -323,6 +328,46 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
     }
 }
 
+void disconnect() {
+  //断开连接
+  ret_code_t err_code;
+  if(m_ble_nus_c.conn_handle!=BLE_CONN_HANDLE_INVALID)
+  {
+      err_code = sd_ble_gap_disconnect(m_ble_nus_c.conn_handle,BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+      APP_ERROR_CHECK(err_code);
+  }
+}
+
+const uint8_t HEAD = 0xEB;
+const uint8_t TAIL = 0xED;
+const uint8_t ESCAPE = 0xEC;
+const uint8_t ESCAPE_ESCAPE = 0x00;
+const uint8_t ESCAPE_HEAD = 0x01;
+const uint8_t ESCAPE_TAIL = 0x02;
+
+void send_frame(const uint8_t * data, uint16_t data_len) {
+  put_byte(HEAD);
+  for (uint32_t i = 0; i < data_len; i++)
+  {
+    switch(data[i]) {
+      case HEAD:
+        put_byte(ESCAPE);
+        put_byte(ESCAPE_HEAD);
+        break;
+      case ESCAPE:
+        put_byte(ESCAPE);
+        put_byte(ESCAPE_ESCAPE);
+        break;
+      case TAIL:
+        put_byte(ESCAPE);
+        put_byte(ESCAPE_TAIL);
+        break;
+      default:
+        put_byte(data[i]);
+    }
+  }
+  put_byte(TAIL);
+}
 
 /**@brief   Function for handling app_uart events.
  *
@@ -330,11 +375,15 @@ static void ble_nus_chars_received_uart_print(uint8_t * p_data, uint16_t data_le
  *          a string. The string is sent over BLE when the last character received is a
  *          'new line' '\n' (hex 0x0A) or if the string reaches the maximum data length.
  */
-char string[20] = "Presenab99";
+char string[170] = "Presenab99";
 void uart_event_handle(app_uart_evt_t * p_event)
 {
     static uint8_t data_array[BLE_NUS_MAX_DATA_LEN];
     static uint16_t index = 0;
+    static bool begin = false;
+    static uint8_t frame[BLE_NUS_MAX_DATA_LEN];
+    static uint16_t len = 0;
+    static bool escape = false;
     uint32_t ret_val;
 
     switch (p_event->evt_type)
@@ -343,22 +392,126 @@ void uart_event_handle(app_uart_evt_t * p_event)
         case APP_UART_DATA_READY:
             UNUSED_VARIABLE(app_uart_get(&data_array[index]));
             index++;
+
+            // parse frame
+            bool finish = false;
+            if (begin) {
+              if (escape) {
+                switch (data_array[index-1]) {
+                  case ESCAPE_ESCAPE:
+                    frame[len++] = ESCAPE;
+                    break;
+                  case ESCAPE_HEAD:
+                    frame[len++] = HEAD;
+                    break;
+                  case ESCAPE_TAIL:
+                    frame[len++] = TAIL;
+                    break;
+                }
+                escape = false;
+              } else {
+                switch (data_array[index-1]) {
+                  case ESCAPE:
+                    escape = true;
+                    break;
+                  case TAIL:
+                    begin = false;
+                    finish = true;
+                    index = 0;
+                    break;
+                  default:
+                    frame[len++] = data_array[index-1];
+                }
+              }
+            } else if (data_array[index-1] == HEAD) {
+              begin = true;
+            }
+
+            if (!finish)
+              break;
+
+            // dispatch command
+            switch (frame[0]) {
+              case 0:
+                // reconnect
+                disconnect();
+                break;
+              case 1:
+                // get name
+                send_frame(m_target_periph_name, strlen(m_target_periph_name));
+                break;
+              case 2:
+                // connect to specified name
+                frame[len++] = '\0';
+                for (int i = 1; i < len; i++)
+                  string[i-1] = frame[i];
+                m_target_periph_name = string;
+                name_filter = true;
+                scan_init();
+                disconnect();
+                break;
+              case 3:
+                // enable/disable name filter
+                switch (frame[1]) {
+                  case 0:
+                    // disable
+                    if (name_filter) {
+                      name_filter = false;
+                      scan_init();
+                      disconnect();
+                    }
+                    break;
+                  case 1:
+                    // enable
+                    if (!name_filter) {
+                      name_filter = true;
+                      scan_init();
+                      disconnect();
+                    }
+                    break;
+                }
+                break;
+              case 4:
+                // switch protocol
+                protocol = frame[1];
+                break;
+            }
+            
+            len = 0;
+            break;
+        
+        
+        
+        
+        
             //接收到上位机的“Refresh”指令
             if (data_array[index - 1] == 'R' && (index > 1) && data_array[index - 2] == 'R')
             {
-                //传给上位机共14个字节
-                app_uart_put(0xEE);
-                app_uart_put(0x88);
+              //传给上位机共14个字节
+              // 头2个字节
+              app_uart_put(0xEE);
+              app_uart_put(0x88);
+              // 中间10个字节
+              if (name_filter) {
                 //一般为9个字节
                 for (int i=0;i<strlen(m_target_periph_name);i++)
                     app_uart_put(m_target_periph_name[i]);
                 //不足的用EE补齐
                 for(int i = strlen(m_target_periph_name); i < 10; i++)
                     app_uart_put(0xEE);
-                app_uart_put(0xEE);
-                app_uart_put(0x77);
-                index = 0;
+              } else {
+                for (int i = 0; i < 10; i++) {
+                  app_uart_put('\0');
+                }
+              }
+              // 尾2个字节
+              app_uart_put(0xEE);
+              app_uart_put(0x77);
+
+              // 将数组长度index重置为0
+              index = 0;
             }
+            
             //接收到上位机的“Update”指令
             if (data_array[index - 1] == 'U' && (index > 10) && data_array[index - 2] == 'U')
             {
@@ -379,10 +532,10 @@ void uart_event_handle(app_uart_evt_t * p_event)
                 }
                 m_target_periph_name = string;
                 
-                //重新设置扫描筛选条件
+                // 重新设置扫描筛选条件
                 scan_init();
 
-                //断开连接
+                // 断开连接重新扫描
                 ret_code_t err_code;
                 if(m_ble_nus_c.conn_handle!=BLE_CONN_HANDLE_INVALID)
                 {
@@ -390,9 +543,57 @@ void uart_event_handle(app_uart_evt_t * p_event)
                     APP_ERROR_CHECK(err_code);
                 }
 
+                // 将数组长度index重置为0
                 index = 0;
             }
+            
+            // 接收到上位机开启名称筛选的命令EE
+            if (data_array[index - 1] == 'E' && (index > 1) && data_array[index - 2] == 'E') {
+              if (!name_filter) {
+                name_filter = true;
+                // 重新设置扫描筛选条件
+                scan_init();
+                // 断开连接重新扫描
+                disconnect();
+              }
+              // 将数组长度index重置为0
+              index = 0;
+            }
+            
+            // 接收到上位机关闭名称筛选的命令DD
+            if (data_array[index - 1] == 'D' && (index > 1) && data_array[index - 2] == 'D') {
+              if (name_filter) {
+                name_filter = false;
+                // 重新设置扫描筛选条件
+                scan_init();
+                // 断开连接重新扫描
+                disconnect();
+              }
+              // 将数组长度index重置为0
+              index = 0;
+            }
+            
+            // 接收到上位机断开连接重新扫描的命令XX
+            if (data_array[index - 1] == 'X' && (index > 1) && data_array[index - 2] == 'X') {
+              disconnect();
+              
+              // 将数组长度index重置为0
+              index = 0;
+            }
 
+            // 接收到上位机切换protocol命令XX
+            if ((index > 1) && data_array[index - 2] == 'P') {
+              if (data_array[index - 1] == '0') {
+                // simple
+                protocol = 0;
+              } else if (data_array[index - 1] == '1') {
+                // secure
+                protocol = 1;
+              }
+              // 将数组长度index重置为0
+              index = 0;
+            }
+            
             break;
 
         /**@snippet [Handling data from UART] */
@@ -410,7 +611,6 @@ void uart_event_handle(app_uart_evt_t * p_event)
             break;
     }
 }
-
 
 /**@brief Callback handling Nordic UART Service (NUS) client events.
  *
@@ -442,7 +642,12 @@ static void ble_nus_c_evt_handler(ble_nus_c_t * p_ble_nus_c, ble_nus_c_evt_t con
             break;
 
         case BLE_NUS_C_EVT_NUS_TX_EVT:
-            ble_nus_chars_received_uart_print(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len,p_ble_nus_evt->on_hvx_flag);
+						if (protocol == 0) {
+							ble_nus_chars_received_uart_print_simple(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len,p_ble_nus_evt->on_hvx_flag);
+						} else if (protocol == 1) {
+							ble_nus_chars_received_uart_print_secure(p_ble_nus_evt->p_data, p_ble_nus_evt->data_len,p_ble_nus_evt->on_hvx_flag);
+						}
+            
  /*       for (uint32_t i = 0; i <  p_ble_nus_evt->data_len; i++)
     {
         while (app_uart_put(p_ble_nus_evt->p_data[i]) !=NRF_SUCCESS);
