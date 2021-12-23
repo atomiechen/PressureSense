@@ -82,7 +82,7 @@ SCH_4_4_SQUARE(sch);
 SCH_8_8_TRAPEZOID(sch);
 ```
 
-宏定义及相应遍历函数定义在`nRF5_SDK_15.2.0_9412b96\components\libraries\matrix_sensor`下的`matrix_sensor.h`与`matrix_sensor.c`中，也根据需要自行定制。
+宏定义及相应遍历函数定义在`nRF5_SDK_15.2.0_9412b96\components\libraries\matrix_sensor`下的`matrix_sensor.h`与`matrix_sensor.c`中供参考，也可根据需要自行定制。
 
 
 
@@ -98,6 +98,24 @@ SCH_8_8_TRAPEZOID(sch);
 - `ADG725_output.zip`：手机DFU传送包
 - `app_setting.hex`：自动运行application而非停在bootloader模式的设置文件
 - `merged.hex`：将协议栈、bootloader、application和设置文件合并的HEX文件，可一步烧写到位，不必多次烧写
+
+也可参考文件夹中的`DFU路径及指令.txt`（相关内容如下）手动执行相应命令：
+
+```sh
+# Generate keys:
+nrfutil keys generate private.key
+nrfutil keys display --key pk --format code private.key --out_file dfu_public_key.c
+
+# Generate zip file:
+nrfutil pkg generate --hw-version 52 --application-version 1 --application nrf52832_xxaa.hex --sd-req 0xaf --key-file private.key ADG725_output.zip
+
+# Generate setting file:
+nrfutil settings generate --family NRF52 --application-version 1 --application nrf52832_xxaa.hex --bootloader-version 1 --bl-settings-version 1 app_setting.hex
+
+# Merge multiple HEX files:
+mergehex --merge s132_nrf52_6.1.0_softdevice.hex boot.hex nrf52832_xxaa.hex --output tmp3to1.hex
+mergehex --merge tmp3to1.hex app_setting.hex --output merged.hex
+```
 
 
 
@@ -149,5 +167,4 @@ int protocol = 1;  // 0 for simple, 1 for secure
   - 原字节为0xEB，转义为0xEC + 0x01
   - 原字节为0xED，转义为0xEC + 0x02
 - 尾字节：0xED
-
 
