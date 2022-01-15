@@ -5,7 +5,7 @@
 - 信号采集：硬件采集信号，通过串口与计算机通信，有两种选择
   - 双nRF52832采集：从机采集传感器信号，通过蓝牙BLE无线传输至主机，主机通过串口有线传输至计算机，代码在本仓库
   - 单Arduino采集：采集传感器信号后直接通过串口有线传输至计算机，代码见[MatKit](https://github.com/atomiechen/MatKit)仓库
-- 信号处理与上层应用：计算机端程序处理串口接收数据并开发上层应用，代码见[MatKit](https://github.com/atomiechen/MatKit)仓库
+- 信号处理与上层应用：计算机端程序处理串口接收数据并开发上层应用，代码见PyPI库[MatSense](https://github.com/atomiechen/MatSense)
 
 本仓库代码采用的架构如下图所示：
 
@@ -15,8 +15,11 @@
 
 ## 开发环境
 
-开发芯片：nRF52832，开发板：PCA10040
+计算单元：
 
+- 芯片：nRF52832
+- 开发板：PCA10040
+- 协议栈（softdevice）：s132
 - 基于官方SDK：nRF5 SDK 15.2.0
 - IDE：Keil uvision5
 - 需要安装pack：NordicSemiconductor.nRF_DeviceFamilyPack.8.17.0，见`prerequisites`文件夹
@@ -88,16 +91,16 @@ SCH_8_8_TRAPEZOID(sch);
 
 ### DFU文件生成
 
-从机DFU生成key的文件夹：
+不同从机项目对应的DFU生成文件夹：
 
 - 含IMU数据从机项目：`DFU_key_IMU`
 - 不含IMU数据从机项目：`DFU_key`
 
-在对应项目生成DFU key的文件夹下，执行`make`命令可生成：
+首先在Keil中编译从机项目，生成相应的HEX应用文件（不用检查，默认在各自项目的`_build`目录中，名称为`nrf52832_xxaa.hex`），然后在对应项目的上述DFU文件夹下执行`make`命令，可生成：
 
 - `ADG725_output.zip`：手机DFU传送包
-- `app_setting.hex`：自动运行application而非停在bootloader模式的设置文件
-- `merged.hex`：将协议栈、bootloader、application和设置文件合并的HEX文件，可一步烧写到位，不必多次烧写
+- `app_setting.hex`：自动运行application而非停在bootloader模式的设置文件，配合其他文件用nRFgo Studio烧写
+- `merged.hex`：将softdevice（协议栈）、bootloader、application和上述设置文件合并的HEX文件，可一步用nRFgo Studio烧写到位，不必多次烧写
 
 也可参考文件夹中的`DFU路径及指令.txt`（相关内容如下）手动执行相应命令：
 
