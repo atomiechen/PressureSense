@@ -152,3 +152,39 @@ char record_and_move_8_8_trapezoid(uint8_t data) {
   }
   return ret;
 }
+
+char record_and_move_24_6_glove(uint8_t data) {
+  char ret = 0;
+  
+  // record
+  DataRead[12*i+k] = data;
+  
+  k++;
+  if (k == 12) {
+    i++;
+    if (i == 12) {
+      // need to send data
+      loop_init();
+      ret = 1;
+    } else {
+      k = 0;
+      reg_y = (1<<CSA);
+      reg_x++;
+      // 先变列再变行，减少对边翘起的现象
+      set_mux(reg_y);
+      set_mux(reg_x);
+    }
+  } else {
+    // reg_y++;
+    uint8_t tmp = reg_y & 0x0F;
+    if (tmp < 5) {
+      reg_y++;
+    } else if (tmp == 5) {
+      reg_y = (1<<CSA) + 11;
+    } else {
+      reg_y--;
+    }
+    set_mux(reg_y);
+  }
+  return ret;
+}

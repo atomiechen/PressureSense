@@ -41,6 +41,15 @@ struct sensor_scheme _name = {                        \
   .record_and_move = record_and_move_8_8_trapezoid,   \
 };
 
+#define SCH_24_6_GLOVE(_name)                      \
+struct sensor_scheme _name = {                        \
+  .samples_len = 144,                                  \
+  .data_len = 144,                                     \
+  .data = DataRead,                                   \
+  .loop_init = loop_init,                             \
+  .record_and_move = record_and_move_24_6_glove,   \
+};
+
 
 struct sensor_scheme {
   uint16_t samples_len;
@@ -57,6 +66,7 @@ char record_and_move_16_16_square(uint8_t data);
 char record_and_move_16_16_trapezoid(uint8_t data);
 char record_and_move_4_4_square(uint8_t data);
 char record_and_move_8_8_trapezoid(uint8_t data);
+char record_and_move_24_6_glove(uint8_t data);
 
 
 #endif  // MATRIX_SENSOR_H
