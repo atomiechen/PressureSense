@@ -188,3 +188,31 @@ char record_and_move_24_6_glove(uint8_t data) {
   }
   return ret;
 }
+
+char record_and_move_32_4_glove(uint8_t data) {
+  char ret = 0;
+  
+  // record
+  DataRead[8*i+k] = data;
+  
+  k++;
+  if (k == 8) {
+    i++;
+    if (i == 16) {
+      // need to send data
+      loop_init();
+      ret = 1;
+    } else {
+      k = 0;
+      reg_y = (1<<CSA);
+      reg_x++;
+      // 先变列再变行，减少对边翘起的现象
+      set_mux(reg_y);
+      set_mux(reg_x);
+    }
+  } else {
+    reg_y++;
+    set_mux(reg_y);
+  }
+  return ret;
+}

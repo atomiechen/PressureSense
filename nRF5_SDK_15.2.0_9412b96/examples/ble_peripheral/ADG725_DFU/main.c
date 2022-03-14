@@ -954,7 +954,7 @@ void saadc_sampling_event_enable(void)
 
 
 // 选择传感器方案
-SCH_16_16_TRAPEZOID(sch);
+SCH_32_4_GLOVE(sch);
 
 void saadc_callback2(nrf_drv_saadc_evt_t const * p_event)
 {
